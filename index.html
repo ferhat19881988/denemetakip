@@ -465,10 +465,13 @@
     </div>
 
     <script type="module">
+        // --- FIREBASE GÜNCELLEMESİ YAPILDI ---
+        // Verilen config ile uyumlu ve tarayıcıda çalışacak CDN importları kullanıldı.
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
         import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-        // Firebase Yapılandırması
+        // Firebase Yapılandırması (Kullanıcının verdiği güncel bilgiler)
         const firebaseConfig = {
             apiKey: "AIzaSyAIzu6aNQstwQCdMWODyIwiaVVBm63OeGw",
             authDomain: "odevfeno.firebaseapp.com",
@@ -482,6 +485,7 @@
 
         // Firebase Başlatma
         const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app); // Analytics eklendi
         const db = getDatabase(app);
 
         // Global Değişkenler
@@ -559,12 +563,17 @@
                 const d = new Date(dateStr);
                 return d.getDay() === 0; // 0 = Pazar
             },
+            // --- GÜNCELLEME BURADA YAPILDI: Tarih mantığı kesinleştirildi ---
             getDefaultTimes: (dateStr) => {
-                if (dateUtils.isSunday(dateStr)) {
+                if (!dateStr) return { s1: '', s2: '' };
+                const d = new Date(dateStr);
+                
+                // JavaScript'te getDay(): 0=Pazar, 1=Pazartesi ... 6=Cumartesi
+                if (d.getDay() === 0) {
                     // Pazar ise sabah oturumu
                     return { s1: '09:30 - 10:45', s2: '11:00 - 12:20' };
                 } else {
-                    // Diğer günler akşam oturumu
+                    // Pazar HARİCİ tüm günlerde akşam oturumu (16:30)
                     return { s1: '16:30 - 17:45', s2: '17:55 - 19:15' };
                 }
             }
@@ -1056,8 +1065,8 @@
                 const inputs1 = block.querySelectorAll('.session-input-1');
                 const inputs2 = block.querySelectorAll('.session-input-2');
                 
-                inputs1.forEach(input => { if(!input.value) input.value = times.s1; });
-                inputs2.forEach(input => { if(!input.value) input.value = times.s2; });
+                inputs1.forEach(input => { input.value = times.s1; });
+                inputs2.forEach(input => { input.value = times.s2; });
             }
         };
 
