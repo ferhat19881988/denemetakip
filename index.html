@@ -299,8 +299,8 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sınıf Seviyesi</label>
                         <input type="text" id="examClass" list="classOptions" 
                                class="w-full rounded-lg border-gray-300 border px-3 py-2" 
-                               placeholder="Sınıf Seçiniz veya Yazınız"
-                               onchange="modalManager.onClassChange()">
+                               placeholder="Önce Sınıf Giriniz"
+                               oninput="modalManager.onClassChange()">
                         <datalist id="classOptions">
                             <option value="8.Sınıf"></option>
                             <option value="7.Sınıf"></option>
@@ -320,15 +320,18 @@
                     <input type="text" id="examStationery" class="w-full rounded-lg border-gray-300 border px-3 py-2" placeholder="Tedarikçi adı">
                 </div>
                 
-                <div>
+                <div id="dateSectionWrapper" style="display:none;">
                     <div class="flex justify-between items-center mb-1">
                         <label class="block text-sm font-medium text-gray-700">Uygulama Tarihleri ve Saatleri</label>
-                        <button type="button" onclick="modalManager.addDateRow()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                        <button type="button" id="addDateBtn" onclick="modalManager.addDateRow()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
                             <i class="fa-solid fa-calendar-plus"></i> Gün Ekle
                         </button>
                     </div>
                     <div id="detailedDatesContainer" class="space-y-4 mt-2">
                         </div>
+                </div>
+                <div id="dateWarning" class="text-sm text-orange-500 italic">
+                    * Tarih eklemek için lütfen önce Sınıf Seviyesi giriniz.
                 </div>
 
                 <div class="flex items-center mt-2">
@@ -622,6 +625,7 @@
                 const dates = detailedDates.map(d => d.date);
 
                 if (!name) { alert('Lütfen deneme kategorisini giriniz.'); return; }
+                if (!classLevel) { alert('Lütfen sınıf seviyesini giriniz.'); return; }
 
                 const newExam = {
                     id, name, classLevel, count, stationery, dates, isDone,
@@ -671,6 +675,9 @@
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
                 
+                // Class change'i tetikle ki UI güncellensin
+                modalManager.onClassChange(); 
+
                 // Eğer yeni yapı varsa onu kullan, yoksa eskiden dönüştür
                 if (exam.detailedDates && exam.detailedDates.length > 0) {
                     exam.detailedDates.forEach(dd => modalManager.addDateRow(dd.date, dd.sessions));
@@ -681,7 +688,7 @@
                         modalManager.addDateRow(d, exam.sessions || {});
                     });
                 } else {
-                    modalManager.addDateRow();
+                    // Düzenlemede tarih yoksa boş satır eklemiyoruz, kullanıcı eklesin
                 }
 
                 modalManager.open('examModal');
@@ -757,7 +764,6 @@
                 if(mainCheckbox) mainCheckbox.checked = Array.from(allCheckboxes).every(c => c.checked);
                 uiManager.renderTable();
             },
-            // YENİ EKLENEN FONKSİYON: SEÇİMİ KALDIR
             clearSelection: () => {
                 window.appState.selectedExamIds.clear();
                 const mainCheckbox = document.getElementById('selectAll');
@@ -869,8 +875,6 @@
                         ? exam.dates.slice().sort().map(d => `<span class="inline-block bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded border border-indigo-100 mr-1 mb-1">${dateUtils.formatDate(d)}</span>`).join('')
                         : '<span class="text-gray-400 italic">Tarih yok</span>';
 
-                    // MOBİL İÇİN PROFESYONEL DOKUNUŞ: data-label attribute'ları eklendi.
-                    // CSS bu etiketleri mobilde sol tarafa yerleştirecek.
                     tr.innerHTML = `
                         <td class="px-4 py-4 whitespace-nowrap" data-label="">
                             <div class="flex items-center">
@@ -917,19 +921,75 @@
                 document.getElementById('examId').value = '';
                 document.getElementById('modalTitle').innerText = 'Yeni Deneme Ekle';
                 document.getElementById('examName').value = '';
-                document.getElementById('examClass').value = '8.Sınıf';
+                
+                // GÜNCELLEME: Sınıf seviyesi başlangıçta boş
+                const classInput = document.getElementById('examClass');
+                classInput.value = ''; 
+                
                 document.getElementById('examCount').value = '';
                 document.getElementById('examStationery').value = '';
                 document.getElementById('examIsDone').checked = false;
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
-                modalManager.addDateRow(); // Boş bir satır ekle
+                
+                // GÜNCELLEME: Tarih ekleme butonu durumunu güncelle
+                modalManager.onClassChange();
+                
                 modalManager.open('examModal');
             },
             onClassChange: () => {
-                // Sınıf değiştiğinde mevcut tarih bloklarındaki sınıfları güncellemek isterseniz burayı kullanabilirsiniz
-                // Ancak kullanıcı deneyimi açısından mevcut veriyi silmemek için şimdilik sadece yeni eklenenler güncellenir.
-                // İstenirse tüm blokları yeniden render edebiliriz ama veri kaybı riski var.
+                const classVal = document.getElementById('examClass').value;
+                const section = document.getElementById('dateSectionWrapper');
+                const warning = document.getElementById('dateWarning');
+                
+                if(!classVal || classVal.trim() === '') {
+                    section.style.display = 'none';
+                    warning.style.display = 'block';
+                    // Sınıf silindiyse tarihleri de temizle (veri tutarlılığı için)
+                    document.getElementById('detailedDatesContainer').innerHTML = '';
+                } else {
+                    section.style.display = 'block';
+                    warning.style.display = 'none';
+                    
+                    // Sınıf değiştiğinde mevcut tarih satırlarındaki sınıfları (tikleri) güncelle
+                    const blocks = document.querySelectorAll('.date-block');
+                    const subClasses = classUtils.splitClasses(classVal);
+                    
+                    blocks.forEach(block => {
+                        const container = block.querySelector('.session-container');
+                        if(container) {
+                            // Mevcut değerleri korumaya çalışabiliriz ama yapı değiştiği için
+                            // en temiz yöntem yeni sınıfa göre satırları yeniden oluşturmaktır.
+                            // Tarih değeri zaten block seviyesinde inputta duruyor, kaybolmaz.
+                            
+                            // Ancak kullanıcının girdiği saatleri kaybetmemek için basit bir map yapabiliriz.
+                            // Şimdilik basitçe yeniden render ediyoruz.
+                            modalManager.renderSessions(container, subClasses, {});
+                        }
+                    });
+                }
+            },
+            renderSessions: (container, subClasses, existingValues = {}) => {
+                 let html = '';
+                 subClasses.forEach(subClass => {
+                    const sessionData = existingValues[subClass] || { s1: '', s2: '' }; // Varsayılan boş
+                    // Eğer yeni oluşturuluyorsa ve tarih varsa addDateRow içinde defaultTimes verilecek.
+                    // Burası sadece class değişiminde tetiklenen re-render için.
+                    
+                    html += `
+                        <div class="session-row grid grid-cols-12 gap-2 items-center border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                            <div class="col-span-3 flex items-center">
+                                <input type="checkbox" class="class-check rounded text-indigo-600 mr-2" value="${subClass}" checked>
+                                <span class="text-xs font-semibold text-gray-600">${subClass}</span>
+                            </div>
+                            <div class="col-span-9 grid grid-cols-2 gap-2">
+                                <input type="text" class="session-input-1 w-full text-xs rounded border-gray-300" value="${sessionData.s1 || ''}" placeholder="1. Oturum">
+                                <input type="text" class="session-input-2 w-full text-xs rounded border-gray-300" value="${sessionData.s2 || ''}" placeholder="2. Oturum">
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
             },
             addDateRow: (dateValue = '', sessions = {}) => {
                 const container = document.getElementById('detailedDatesContainer');
@@ -937,7 +997,7 @@
                 const subClasses = classUtils.splitClasses(classStr);
 
                 if(subClasses.length === 0) {
-                    alert('Lütfen önce sınıf seviyesini giriniz.');
+                    alert('Lütfen önce geçerli bir sınıf seviyesi giriniz.');
                     return;
                 }
 
@@ -964,10 +1024,9 @@
                     <div class="space-y-2 session-container">
                 `;
 
+                // Session satırlarını oluştur
                 subClasses.forEach(subClass => {
                     const sessionData = sessions[subClass] || defaultTimes;
-                    // Eğer sessions objesi boşsa ve tarih varsa, defaultTimes kullan
-                    // Eğer tarih yoksa boş gelir
                     const isActive = sessions[subClass] ? 'checked' : (Object.keys(sessions).length === 0 ? 'checked' : '');
 
                     html += `
@@ -987,22 +1046,18 @@
                 html += `</div>`;
                 div.innerHTML = html;
                 container.appendChild(div);
-
-                // Eğer yeni eklenen satırsa ve tarih yoksa saatleri boş bırak, tarih girilince dolduracağız.
-                // Eğer tarih parametre olarak geldiyse zaten yukarıda defaultTimes ile doldu.
             },
             onDateChange: (blockId, dateValue) => {
                 if (!dateValue) return;
                 const times = dateUtils.getDefaultTimes(dateValue);
                 const block = document.getElementById(blockId);
                 
-                // Sadece boş olan veya kullanıcı tarafından henüz özel bir şey girilmemiş (varsayalım) alanları doldur
-                // Kullanıcı kolaylığı için hepsini güncelleyelim, kullanıcı isterse değiştirir.
+                // Sadece boş olan veya kullanıcı tarafından henüz özel bir şey girilmemiş alanları doldur
                 const inputs1 = block.querySelectorAll('.session-input-1');
                 const inputs2 = block.querySelectorAll('.session-input-2');
                 
-                inputs1.forEach(input => input.value = times.s1);
-                inputs2.forEach(input => input.value = times.s2);
+                inputs1.forEach(input => { if(!input.value) input.value = times.s1; });
+                inputs2.forEach(input => { if(!input.value) input.value = times.s2; });
             }
         };
 
@@ -1039,14 +1094,12 @@
                         }
                     }
 
-                    // --- OTOMATİK SAAT VE DETAYLI TARİH OLUŞTURMA ---
                     const detailedDates = [];
                     if (parsedDate) {
                         const defaultTimes = dateUtils.getDefaultTimes(parsedDate);
                         const subClasses = classUtils.splitClasses(classLevel);
                         const sessionObj = {};
                         
-                        // Her alt sınıf için varsayılan saati ata
                         subClasses.forEach(cls => {
                             sessionObj[cls] = { session1: defaultTimes.s1, session2: defaultTimes.s2 };
                         });
@@ -1061,7 +1114,7 @@
                         id: Date.now() + Math.random().toString(16).slice(2),
                         name, classLevel, count: '', stationery: '', isDone: false,
                         dates: parsedDate ? [parsedDate] : [],
-                        detailedDates: detailedDates // Yeni yapı dolduruldu
+                        detailedDates: detailedDates
                     };
                 });
 
@@ -1086,7 +1139,6 @@
                 const nowFormatted = dateUtils.formatDate(nowLocal);
                 const supplierName = selectedExams[0].stationery || 'Tedarikçi Girilmedi';
 
-                // GÜNCELLEME: Emoji değişti, Tarih -> Uygulama Tarihi, ** -> *
                 let message = `📋 *Fenomen Çocuk Kulübü Deneme Sipariş Listesi*\n\nSayın *${supplierName}* çalışanı firmamız adına sipariş isteğimiz vardır gerekli bilgileri yolluyorum lütfen bize dönüş yapın.\n\n🕒 *Deneme sipariş tarihi:* ${nowFormatted}\n\n`;
 
                 selectedExams.forEach(exam => {
@@ -1121,26 +1173,20 @@
                 if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
                 const selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
                 
-                // GÜNCELLEME: Başlık ve ** yerine * kullanımı
                 let message = `📢 *Fenomen Çocuk Kulübü Deneme Bilgilendirmesi*\n\nSayın Velilerimiz, Öğrencilerimizin katılacağı deneme sınav programı aşağıdadır:\n\n`;
 
                 selectedExams.forEach(exam => {
                     message += `📘 *${exam.name}* (${exam.classLevel})\n`;
                     
-                    // Benzersiz tarih kontrolü
                     const uniqueDates = exam.detailedDates ? [...new Set(exam.detailedDates.map(d => d.date))] : (exam.dates || []);
                     
                     if(exam.detailedDates && exam.detailedDates.length > 0) {
-                        
-                        // TARİHE GÖRE SIRALAMA EKLENDİ (ESKİDEN YENİYE)
                         const sortedDates = [...exam.detailedDates].sort((a, b) => new Date(a.date) - new Date(b.date));
                         
-                        // Yeni yapıdan okuma
                         sortedDates.forEach(dd => {
                             const formattedDate = dateUtils.formatDate(dd.date);
                             message += `🗓 *${formattedDate}*\n`;
                             
-                            // O tarihteki sınıfları ve saatleri listele
                             if (dd.sessions) {
                                 Object.keys(dd.sessions).forEach(subCls => {
                                     const sess = dd.sessions[subCls];
@@ -1151,11 +1197,9 @@
                                     }
                                 });
                             }
-                            message += `\n`; // Günler arası boşluk
+                            message += `\n`;
                         });
                     } else if (exam.dates && exam.dates.length > 0) {
-                        // Eski veriden okuma (Fallback)
-                        // Tarihleri sırala
                         const sortedOldDates = [...exam.dates].sort();
                         sortedOldDates.forEach(d => {
                              message += `🗓 *${dateUtils.formatDate(d)}*\n`;
@@ -1249,17 +1293,13 @@
                         else if(col.id === 'name') text = exam.name;
                         else if(col.id === 'class') text = exam.classLevel;
                         else if(col.id === 'dates') {
-                            // GÜNCELLEME: YAZDIRMADA SINIF BİLGİSİ EKLENDİ VE SIRALANDI
                             if (exam.detailedDates && exam.detailedDates.length > 0) {
-                                // Tarihleri sırala
                                 const sorted = [...exam.detailedDates].sort((a,b) => new Date(a.date) - new Date(b.date));
                                 text = sorted.map(dd => {
                                     const dStr = dateUtils.formatDate(dd.date);
-                                    // Sınıf bilgilerini al (Sınıf kelimesini temizle)
                                     const cls = Object.keys(dd.sessions || {})
                                         .map(s => s.replace('.Sınıf','').replace('.Sinif',''))
                                         .join('-');
-                                    // Örnek: 15 Aralık (... (5-6))
                                     return `${dStr} ${cls ? `<span class="text-gray-600 font-semibold">(${cls})</span>` : ''}`;
                                 }).join('<br>');
                             } else {
