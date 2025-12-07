@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fenomen Deneme Takip - Bilgilendirme</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        /* iOS Input Zoom Engelleme */
+        input, select, textarea { font-size: 16px !important; }
+
+        /* Scrollbar Özelleştirme */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Geçiş Efektleri */
+        .btn-hover { transition: all 0.2s ease; }
+        .btn-hover:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .btn-hover:active { transform: translateY(0); }
+
+        /* Tablo Satır Stilleri */
+        .row-completed { background-color: #f1f5f9; color: #94a3b8; text-decoration: line-through; }
+        .row-completed td { opacity: 0.7; }
+        
+        /* Input Focus Effects in Table */
+        .table-input {
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+        }
+        .table-input:focus {
+            background-color: #ffffff;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Modal Animasyonları */
+        .modal { opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .modal.active { opacity: 1; visibility: visible; }
+        .modal-content { transform: scale(0.95); transition: all 0.3s ease; }
+        .modal.active .modal-content { transform: scale(1); }
+
+        /* Yalnızca yazdırmada görünen layout */
+        .print-layout { display: none; }
+
+        /* GÜNCELLENMİŞ YAZDIRMA AYARLARI */
+        @media print {
+            @page { margin: 0.5cm; size: portrait; }
+            body * { visibility: hidden; }
+            body, main { overflow: visible !important; height: auto !important; position: static !important; background: white !important; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; background: white; display: block; }
+            .no-print { display: none !important; }
+            .print-layout { display: block !important; width: 100%; }
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-white shadow-sm z-20 flex-none">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-indigo-600 text-2xl"></i>
+                <h1 class="text-xl font-bold text-gray-900 tracking-tight hidden sm:block">Fenomen Deneme Takip - Bilgilendirme</h1>
+                <h1 class="text-lg font-bold text-gray-900 tracking-tight sm:hidden">Fenomen Takip</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="cloudManager.save()" class="btn-hover bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> <span class="hidden sm:inline">Kaydet</span>
+                </button>
+                <button onclick="cloudManager.load()" class="btn-hover bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> <span class="hidden sm:inline">Yükle</span>
+                </button>
+                 <label for="excelInput" class="btn-hover bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> <span class="hidden sm:inline">Excel Yükle</span>
+                </label>
+                <input type="file" id="excelInput" accept=".xlsx, .csv" class="hidden" onchange="excelManager.handleFile(this)">
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden flex flex-col bg-gray-50">
+        
+        <div class="p-4 bg-white border-b border-gray-200 flex flex-col gap-4 sm:gap-3 no-print">
+            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-1 items-center">
+                <div class="relative w-full sm:w-64">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-search text-gray-400"></i>
+                    </div>
+                    <input type="text" id="searchInput" onkeyup="uiManager.renderTable()" placeholder="Ara (deneme, sınıf, kırtasiye...)" 
+                           class="pl-10 block w-full rounded-lg border-gray-300 bg-gray-50 border focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 transition shadow-sm">
+                </div>
+                <select id="statusFilter" onchange="uiManager.renderTable()" class="block w-full sm:w-40 rounded-lg border-gray-300 bg-gray-50 border py-2 px-3 sm:text-sm focus:border-indigo-500 focus:ring-indigo-500 shadow-sm">
+                    <option value="all">Tüm Durumlar</option>
+                    <option value="pending">Bekleyenler</option>
+                    <option value="completed">Uygulananlar</option>
+                </select>
+                
+                <button onclick="uiManager.resetFilters()" class="btn-hover bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 whitespace-nowrap" title="Filtreleri Sıfırla">
+                    <i class="fa-solid fa-rotate-right"></i> Sıfırla
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
+                <select id="nameFilter" onchange="uiManager.renderTable()" 
+                        class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="all">Tüm Deneme Kategorileri</option>
+                </select>
+
+                <select id="classFilter" onchange="uiManager.renderTable()" 
+                        class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="all">Tüm Sınıflar</option>
+                </select>
+
+                <input type="date" id="dateFromFilter" onchange="uiManager.renderTable()"
+                       class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                       placeholder="Tarih (başlangıç)">
+                <input type="date" id="dateToFilter" onchange="uiManager.renderTable()"
+                       class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                       placeholder="Tarih (bitiş)">
+
+                <select id="stationeryFilter" onchange="uiManager.renderTable()"
+                        class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="all">Tüm Kırtasiyeler</option>
+                </select>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                <span class="font-medium">Seçili denemelerin durumunu güncelle:</span>
+                <button type="button" onclick="printManager.bulkSetStatus(true)" class="px-3 py-1 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                    <i class="fa-solid fa-check mr-1"></i> Uygulandı yap
+                </button>
+                <button type="button" onclick="printManager.bulkSetStatus(false)" class="px-3 py-1 rounded-lg text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                    <i class="fa-solid fa-clock mr-1"></i> Bekliyor yap
+                </button>
+                <div class="h-4 w-px bg-gray-300 mx-2 hidden sm:block"></div>
+                <button type="button" onclick="uiManager.clearSelection()" class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 transition">
+                    <i class="fa-solid fa-square-minus mr-1"></i> Seçimi Kaldır
+                </button>
+            </div>
+
+            <div class="flex gap-2 w-full sm:w-auto justify-end overflow-x-auto pb-1 sm:pb-0">
+                <button onclick="modalManager.openExamModal()" class="btn-hover bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow whitespace-nowrap">
+                    <i class="fa-solid fa-plus mr-1"></i> Yeni Ekle
+                </button>
+                <button onclick="printManager.openSettings()" class="btn-hover bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow whitespace-nowrap">
+                    <i class="fa-solid fa-print mr-1"></i> Yazdır
+                </button>
+                <button onclick="dataManager.clearAll()" class="btn-hover bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium shadow whitespace-nowrap">
+                    <i class="fa-solid fa-trash-can mr-1"></i> Listeyi Temizle
+                </button>
+                <div class="h-8 w-px bg-gray-300 mx-1"></div>
+                <button onclick="whatsappManager.openStationeryModal()" class="btn-hover bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium shadow whitespace-nowrap">
+                    <i class="fa-brands fa-whatsapp mr-1"></i> Kırtasiye
+                </button>
+                <button onclick="whatsappManager.openParentModal()" class="btn-hover bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium shadow whitespace-nowrap">
+                    <i class="fa-brands fa-whatsapp mr-1"></i> Veli
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-auto p-4" id="print-area">
+            <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200 no-print">
+                <div class="px-4 pt-4 pb-2 text-sm text-gray-600 border-b border-gray-100 flex justify-between items-center">
+                    <span id="examCountInfo" class="font-medium">Listelenen deneme sayısı: 0</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left">
+                                    <input type="checkbox" id="selectAll" onchange="uiManager.toggleSelectAll()" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 group" onclick="uiManager.sortBy('isDone')">
+                                    Durum <i class="fa-solid fa-sort ml-1 opacity-0 group-hover:opacity-100 transition"></i>
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 group" onclick="uiManager.sortBy('name')">
+                                    Deneme Kategorisi <i class="fa-solid fa-sort ml-1 opacity-0 group-hover:opacity-100 transition"></i>
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 group" onclick="uiManager.sortBy('classLevel')">
+                                    Sınıf <i class="fa-solid fa-sort ml-1 opacity-0 group-hover:opacity-100 transition"></i>
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 group" onclick="uiManager.sortBy('date')">
+                                    Uygulama Tarihleri <i class="fa-solid fa-sort ml-1 opacity-0 group-hover:opacity-100 transition"></i>
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Kırtasiye
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Adet
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider no-print">
+                                    İşlemler
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="bg-white divide-y divide-gray-200 text-sm">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="hidden p-12 text-center text-gray-500">
+                    <i class="fa-solid fa-clipboard-list text-4xl mb-4 text-gray-300"></i>
+                    <p>Gösterilecek veri bulunamadı.</p>
+                </div>
+            </div>
+
+            <div id="printLayout" class="print-layout"></div>
+        </div>
+    </main>
+
+    <div id="examModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-900" id="modalTitle">Yeni Deneme Ekle</h3>
+                <button onclick="modalManager.close('examModal')" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto custom-scrollbar space-y-4">
+                <input type="hidden" id="examId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Deneme Kategorisi</label>
+                    <input type="text" id="examName" class="w-full rounded-lg border-gray-300 border focus:border-indigo-500 focus:ring-indigo-500 px-3 py-2" placeholder="Örn: LGS Genel Tekrar">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Sınıf Seviyesi</label>
+                        <input type="text" id="examClass" list="classOptions" 
+                               class="w-full rounded-lg border-gray-300 border px-3 py-2" 
+                               placeholder="Sınıf Seçiniz veya Yazınız"
+                               onchange="modalManager.onClassChange()">
+                        <datalist id="classOptions">
+                            <option value="8.Sınıf"></option>
+                            <option value="7.Sınıf"></option>
+                            <option value="6.Sınıf"></option>
+                            <option value="5.Sınıf"></option>
+                            <option value="4.Sınıf"></option>
+                            <option value="5-6-7.Sınıf"></option>
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Adet (Çoklu: 10/20)</label>
+                        <input type="text" id="examCount" class="w-full rounded-lg border-gray-300 border px-3 py-2" placeholder="0">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kırtasiye Adı</label>
+                    <input type="text" id="examStationery" class="w-full rounded-lg border-gray-300 border px-3 py-2" placeholder="Tedarikçi adı">
+                </div>
+                
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium text-gray-700">Uygulama Tarihleri ve Saatleri</label>
+                        <button type="button" onclick="modalManager.addDateRow()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                            <i class="fa-solid fa-calendar-plus"></i> Gün Ekle
+                        </button>
+                    </div>
+                    <div id="detailedDatesContainer" class="space-y-4 mt-2">
+                        </div>
+                </div>
+
+                <div class="flex items-center mt-2">
+                    <input type="checkbox" id="examIsDone" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="examIsDone" class="ml-2 block text-sm text-gray-900">Bu deneme uygulandı (tamamlandı)</label>
+                </div>
+            </div>
+            <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
+                <button onclick="modalManager.close('examModal')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium btn-hover">İptal</button>
+                <button onclick="dataManager.saveExam()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium btn-hover">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="waModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-900" id="waModalTitle">WhatsApp Mesajı</h3>
+                <button onclick="modalManager.close('waModal')" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-5">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Mesaj Önizleme (Düzenlenebilir)</label>
+                <textarea id="waMessageArea" class="w-full h-48 rounded-lg border-gray-300 border focus:border-green-500 focus:ring-green-500 p-3 text-sm font-mono bg-green-50" spellcheck="false"></textarea>
+                <p class="text-xs text-gray-500 mt-2"><i class="fa-solid fa-circle-info"></i> Yıldız (*) metni kalınlaştırır.</p>
+            </div>
+            <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-between items-center gap-2">
+                 <button onclick="whatsappManager.copyToClipboard()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium btn-hover flex items-center gap-2">
+                    <i class="fa-solid fa-copy"></i> Kopyala
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="modalManager.close('waModal')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium btn-hover">İptal</button>
+                    <button onclick="whatsappManager.send()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium btn-hover flex items-center gap-2">
+                        <i class="fa-brands fa-whatsapp"></i> WhatsApp'a Gönder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="printSettingsModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-900">Yazdırma Seçenekleri</h3>
+                <button onclick="modalManager.close('printSettingsModal')" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-sm text-gray-600 mb-2">Çıktıda görünmesini istediğiniz sütunları seçin:</p>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(1, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Durum</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(2, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Deneme Kategorisi</span>
+                </label>
+                 <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(3, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Sınıf</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(4, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Uygulama Tarihleri</span>
+                </label>
+                 <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(5, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Kırtasiye</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(6, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Adet</span>
+                </label>
+                 <div class="pt-2 border-t mt-2">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="printOnlySelected" class="rounded text-red-600 focus:ring-red-500 h-4 w-4">
+                        <span class="text-sm font-semibold text-gray-700">Sadece seçili satırları yazdır</span>
+                    </label>
+                 </div>
+
+                 <div class="pt-3 border-t mt-3 space-y-2">
+                    <p class="text-sm text-gray-600 font-semibold">Tarih bilgisi</p>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="printShowDate" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked>
+                        <span class="text-sm">Başlıkta yazdırma tarihini göster</span>
+                    </label>
+                    <div class="flex items-center gap-2 pl-6">
+                        <span class="text-xs text-gray-600">Tarih:</span>
+                        <input type="date" id="printCustomDate" class="rounded-lg border border-gray-300 bg-gray-50 px-2 py-1 text-xs focus:border-indigo-500 focus:ring-indigo-500">
+                        <button type="button" onclick="printManager.setTodayDate()" class="px-2 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300">
+                            Bugün
+                        </button>
+                    </div>
+                 </div>
+
+                 <div class="pt-3 border-t mt-3 space-y-2">
+                    <p class="text-sm text-gray-600 font-semibold">Kağıt ve baskı ayarları</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="text-sm text-gray-700">Yönlendirme:</span>
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="radio" name="printOrientation" value="portrait" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked>
+                            <span>Dikey (varsayılan)</span>
+                        </label>
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="radio" name="printOrientation" value="landscape" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                            <span>Yatay</span>
+                        </label>
+                    </div>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="printCompact" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                        <span class="text-sm">Satır aralığını küçült (daha çok satır sığsın)</span>
+                    </label>
+                 </div>
+            </div>
+            <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
+                <button onclick="modalManager.close('printSettingsModal')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium btn-hover">Kapat</button>
+                <button onclick="printManager.executePrint()" class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 font-medium btn-hover flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> Yazdır
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="copyToast" class="fixed bottom-4 right-4 z-50 hidden">
+        <div class="bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm">
+            <i class="fa-solid fa-check-circle"></i>
+            <span id="copyToastText">Kopyalandı.</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        // Firebase Yapılandırması
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIzu6aNQstwQCdMWODyIwiaVVBm63OeGw",
+            authDomain: "odevfeno.firebaseapp.com",
+            databaseURL: "https://odevfeno-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "odevfeno",
+            storageBucket: "odevfeno.firebasestorage.app",
+            messagingSenderId: "662757516934",
+            appId: "1:662757516934:web:0042188832f63deb6fd307",
+            measurementId: "G-4Q99NQRB38"
+        };
+
+        // Firebase Başlatma
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Global Değişkenler
+        window.appState = {
+            exams: [],
+            sortConfig: { key: 'date', direction: 'asc' },
+            selectedExamIds: new Set()
+        };
+
+        // Cloud Manager (Firebase İşlemleri)
+        window.cloudManager = {
+            save: () => {
+                if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
+                    set(ref(db, 'denemetest'), window.appState.exams)
+                        .then(() => alert('Liste başarıyla kaydedildi!'))
+                        .catch((error) => alert('Kaydetme hatası: ' + error.message));
+                }
+            },
+            load: () => {
+                const dbRef = ref(db, 'denemetest');
+                onValue(dbRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        window.appState.exams = data || [];
+                        uiManager.renderTable();
+                        window.filterManager && window.filterManager.rebuildOptions();
+                        alert('Liste Firebase\'den güncellendi.');
+                    } else {
+                        alert('Kayıtlı veri bulunamadı.');
+                    }
+                }, { onlyOnce: true });
+            }
+        };
+    </script>
+
+    <script>
+        // --- Date Utils ---
+        const dateUtils = {
+            monthMap: {
+                'ocak': 0, 'şubat': 1, 'subat': 1, 'mart': 2, 'nisan': 3, 'mayıs': 4, 'mayis': 4,
+                'haziran': 5, 'temmuz': 6, 'ağustos': 7, 'agustos': 7, 'eylül': 8, 'eylul': 8,
+                'ekim': 9, 'kasım': 10, 'kasim': 10, 'aralık': 11, 'aralik': 11
+            },
+            toInputDateString: (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            },
+            parseTurkishDateString: (str) => {
+                if (!str) return null;
+                const s = str.toString().trim();
+                const match = s.match(/(\d{1,2})\s+([^\s]+)\s+(\d{4})/);
+                if (!match) return null;
+                const day = parseInt(match[1], 10);
+                const monthName = match[2].toLowerCase();
+                const year = parseInt(match[3], 10);
+                const month = dateUtils.monthMap[monthName];
+                if (month === undefined) return null;
+                const d = new Date(year, month, day);
+                if (isNaN(d.getTime())) return null;
+                return dateUtils.toInputDateString(d);
+            },
+            formatDate: (dateInput) => {
+                if (!dateInput) return '';
+                let date = new Date(dateInput);
+                if (isNaN(date.getTime())) return dateInput.toString();
+                const day = date.getDate();
+                const month = date.toLocaleDateString('tr-TR', { month: 'long' });
+                const weekday = date.toLocaleDateString('tr-TR', { weekday: 'long' });
+                const year = date.getFullYear();
+                return `${day} ${month} ${weekday} ${year}`;
+            },
+            isSunday: (dateStr) => {
+                const d = new Date(dateStr);
+                return d.getDay() === 0; // 0 = Pazar
+            },
+            getDefaultTimes: (dateStr) => {
+                if (dateUtils.isSunday(dateStr)) {
+                    // Pazar ise sabah oturumu
+                    return { s1: '09:30 - 10:45', s2: '11:00 - 12:20' };
+                } else {
+                    // Diğer günler akşam oturumu
+                    return { s1: '16:30 - 17:45', s2: '17:55 - 19:15' };
+                }
+            }
+        };
+
+        // --- Helper for Classes ---
+        const classUtils = {
+            splitClasses: (classStr) => {
+                if(!classStr) return [];
+                return classStr.replace(/\.Sınıf/gi, '')
+                               .replace(/\.Sinif/gi, '')
+                               .split(/[-,\/]/)
+                               .map(s => s.trim())
+                               .filter(s => s.length > 0)
+                               .map(s => s.includes('Sınıf') ? s : s + '.Sınıf');
+            }
+        };
+
+        // --- Data Manager ---
+        const dataManager = {
+            saveExam: () => {
+                const id = document.getElementById('examId').value || Date.now().toString();
+                const name = document.getElementById('examName').value;
+                const classLevel = document.getElementById('examClass').value;
+                const count = document.getElementById('examCount').value;
+                const stationery = document.getElementById('examStationery').value;
+                const isDone = document.getElementById('examIsDone').checked;
+                
+                // Yeni Veri Yapısı: detailedDates
+                // [{ date: '2025-01-01', sessions: { '5.Sınıf': {s1, s2} } }]
+                const detailedDates = [];
+                const dateBlocks = document.querySelectorAll('.date-block');
+                
+                dateBlocks.forEach(block => {
+                    const dateVal = block.querySelector('.exam-date-input').value;
+                    if (!dateVal) return;
+
+                    const sessionsForThisDate = {};
+                    const sessionRows = block.querySelectorAll('.session-row');
+                    
+                    sessionRows.forEach(row => {
+                        const check = row.querySelector('.class-check');
+                        if (check && check.checked) {
+                            const subClass = check.value;
+                            const s1 = row.querySelector('.session-input-1').value;
+                            const s2 = row.querySelector('.session-input-2').value;
+                            sessionsForThisDate[subClass] = { session1: s1, session2: s2 };
+                        }
+                    });
+
+                    detailedDates.push({
+                        date: dateVal,
+                        sessions: sessionsForThisDate
+                    });
+                });
+
+                // Uyumluluk için eski dates dizisini de oluştur
+                const dates = detailedDates.map(d => d.date);
+
+                if (!name) { alert('Lütfen deneme kategorisini giriniz.'); return; }
+
+                const newExam = {
+                    id, name, classLevel, count, stationery, dates, isDone,
+                    detailedDates: detailedDates // Yeni yapı
+                };
+
+                const existingIndex = window.appState.exams.findIndex(e => e.id === id);
+                if (existingIndex >= 0) {
+                    window.appState.exams[existingIndex] = newExam;
+                } else {
+                    window.appState.exams.push(newExam);
+                }
+
+                filterManager.rebuildOptions();
+                modalManager.close('examModal');
+                uiManager.renderTable();
+            },
+            deleteExam: (id) => {
+                if(confirm('Bu denemeyi silmek istediğinize emin misiniz?')) {
+                    window.appState.exams = window.appState.exams.filter(e => e.id !== id);
+                    window.appState.selectedExamIds.delete(id);
+                    filterManager.rebuildOptions();
+                    uiManager.renderTable();
+                }
+            },
+            clearAll: () => {
+                if (window.appState.exams.length === 0) { alert('Zaten listede kayıt yok.'); return; }
+                if (confirm('Listedeki TÜM denemeler silinecek. Emin misiniz?')) {
+                    window.appState.exams = [];
+                    window.appState.selectedExamIds = new Set();
+                    filterManager.rebuildOptions();
+                    uiManager.renderTable();
+                }
+            },
+            editExam: (id) => {
+                const exam = window.appState.exams.find(e => e.id === id);
+                if(!exam) return;
+
+                document.getElementById('examId').value = exam.id;
+                document.getElementById('modalTitle').innerText = 'Deneme Düzenle';
+                document.getElementById('examName').value = exam.name;
+                document.getElementById('examClass').value = exam.classLevel;
+                document.getElementById('examCount').value = exam.count;
+                document.getElementById('examStationery').value = exam.stationery;
+                document.getElementById('examIsDone').checked = exam.isDone;
+
+                const container = document.getElementById('detailedDatesContainer');
+                container.innerHTML = '';
+                
+                // Eğer yeni yapı varsa onu kullan, yoksa eskiden dönüştür
+                if (exam.detailedDates && exam.detailedDates.length > 0) {
+                    exam.detailedDates.forEach(dd => modalManager.addDateRow(dd.date, dd.sessions));
+                } else if (exam.dates && exam.dates.length > 0) {
+                    // Eski veriyi dönüştürme (geriye dönük uyumluluk)
+                    exam.dates.forEach(d => {
+                        // Eski yapıda sessions tek bir obje idi, onu kullanıyoruz
+                        modalManager.addDateRow(d, exam.sessions || {});
+                    });
+                } else {
+                    modalManager.addDateRow();
+                }
+
+                modalManager.open('examModal');
+            },
+            toggleStatus: (id) => {
+                const exam = window.appState.exams.find(e => e.id === id);
+                if (!exam) return;
+                exam.isDone = !exam.isDone;
+                uiManager.renderTable();
+            },
+            updateField: (id, field, value) => {
+                const exam = window.appState.exams.find(e => e.id === id);
+                if (!exam) return;
+                exam[field] = value;
+                uiManager.renderTable();
+            }
+        };
+
+        // --- Filtre Manager ---
+        const filterManager = {
+            rebuildOptions: () => {
+                const exams = window.appState.exams || [];
+                const categorySelect = document.getElementById('nameFilter');
+                const classSelect = document.getElementById('classFilter');
+                const stationerySelect = document.getElementById('stationeryFilter');
+                if (!categorySelect || !classSelect || !stationerySelect) return;
+
+                const getUniqueSorted = (arr) => [...new Set(arr.filter(v => !!v))].sort((a, b) => a.localeCompare(b, 'tr-TR'));
+
+                const savedVals = {
+                    cat: categorySelect.value,
+                    cls: classSelect.value,
+                    stat: stationerySelect.value
+                };
+
+                const categories = getUniqueSorted(exams.map(e => e.name));
+                const classes = getUniqueSorted(exams.map(e => e.classLevel));
+                const stationeries = getUniqueSorted(exams.map(e => e.stationery));
+
+                categorySelect.innerHTML = '<option value="all">Tüm Deneme Kategorileri</option>';
+                categories.forEach(name => categorySelect.innerHTML += `<option value="${name}">${name}</option>`);
+                
+                classSelect.innerHTML = '<option value="all">Tüm Sınıflar</option>';
+                classes.forEach(cls => classSelect.innerHTML += `<option value="${cls}">${cls}</option>`);
+                
+                stationerySelect.innerHTML = '<option value="all">Tüm Kırtasiyeler</option>';
+                stationeries.forEach(st => stationerySelect.innerHTML += `<option value="${st}">${st}</option>`);
+
+                categorySelect.value = categories.includes(savedVals.cat) ? savedVals.cat : 'all';
+                classSelect.value = classes.includes(savedVals.cls) ? savedVals.cls : 'all';
+                stationerySelect.value = stationeries.includes(savedVals.stat) ? savedVals.stat : 'all';
+            }
+        };
+
+        // --- UI Manager ---
+        const uiManager = {
+            toggleSelectAll: () => {
+                const mainCheckbox = document.getElementById('selectAll');
+                const checkboxes = document.querySelectorAll('.row-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = mainCheckbox.checked;
+                    const id = cb.getAttribute('data-id');
+                    if(mainCheckbox.checked) window.appState.selectedExamIds.add(id);
+                    else window.appState.selectedExamIds.delete(id);
+                });
+                uiManager.renderTable();
+            },
+            toggleSelectRow: (id, isChecked) => {
+                if(isChecked) window.appState.selectedExamIds.add(id);
+                else window.appState.selectedExamIds.delete(id);
+                const allCheckboxes = document.querySelectorAll('.row-checkbox');
+                document.getElementById('selectAll').checked = Array.from(allCheckboxes).every(c => c.checked);
+                uiManager.renderTable();
+            },
+            // YENİ EKLENEN FONKSİYON: SEÇİMİ KALDIR
+            clearSelection: () => {
+                window.appState.selectedExamIds.clear();
+                const mainCheckbox = document.getElementById('selectAll');
+                if (mainCheckbox) mainCheckbox.checked = false;
+                uiManager.renderTable();
+            },
+            sortBy: (key) => {
+                const currentSort = window.appState.sortConfig;
+                if(currentSort.key === key) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.key = key;
+                    currentSort.direction = 'asc';
+                }
+                uiManager.renderTable();
+            },
+            copyCell: (cell) => {
+                const text = (cell.innerText || '').trim();
+                if (!text) return;
+                const preview = text.length > 80 ? text.slice(0, 80) + '…' : text;
+                navigator.clipboard.writeText(text).then(() => uiManager.showCopyToast(preview)).catch(() => uiManager.showCopyToast('Hata'));
+            },
+            showCopyToast: (previewText) => {
+                const toast = document.getElementById('copyToast');
+                const span = document.getElementById('copyToastText');
+                span.textContent = previewText ? `Kopyalandı: ${previewText}` : 'Kopyalandı.';
+                toast.classList.remove('hidden');
+                clearTimeout(window._copyToastTimer);
+                window._copyToastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
+            },
+            resetFilters: () => {
+                document.getElementById('searchInput').value = '';
+                document.getElementById('statusFilter').value = 'all';
+                document.getElementById('nameFilter').value = 'all';
+                document.getElementById('classFilter').value = 'all';
+                document.getElementById('stationeryFilter').value = 'all';
+                document.getElementById('dateFromFilter').value = '';
+                document.getElementById('dateToFilter').value = '';
+                uiManager.renderTable();
+            },
+            renderTable: () => {
+                const tbody = document.getElementById('tableBody');
+                const search = (document.getElementById('searchInput').value || '').toLowerCase();
+                const statusFilter = document.getElementById('statusFilter').value;
+                const nameFilter = (document.getElementById('nameFilter').value || 'all').toLowerCase();
+                const classFilter = (document.getElementById('classFilter').value || 'all').toLowerCase();
+                const stationeryFilter = (document.getElementById('stationeryFilter').value || 'all').toLowerCase();
+                const dateFrom = document.getElementById('dateFromFilter').value;
+                const dateTo = document.getElementById('dateToFilter').value;
+
+                tbody.innerHTML = '';
+
+                let filtered = window.appState.exams.filter(exam => {
+                    const name = (exam.name || '').toLowerCase();
+                    const cls = (exam.classLevel || '').toLowerCase();
+                    const stat = (exam.stationery || '').toLowerCase();
+                    
+                    const matchesSearch = name.includes(search) || cls.includes(search) || stat.includes(search);
+                    const matchesName = nameFilter === 'all' || name === nameFilter;
+                    const matchesClass = classFilter === 'all' || cls === classFilter;
+                    const matchesStationery = stationeryFilter === 'all' || stat === stationeryFilter;
+                    
+                    let matchesStatus = true;
+                    if(statusFilter === 'pending') matchesStatus = !exam.isDone;
+                    if(statusFilter === 'completed') matchesStatus = exam.isDone;
+
+                    let matchesDate = true;
+                    if (dateFrom || dateTo) {
+                        const firstDateRaw = (exam.dates && exam.dates.length > 0) ? exam.dates.slice().sort()[0] : null;
+                        if (!firstDateRaw) matchesDate = false;
+                        else {
+                            const t = new Date(firstDateRaw).getTime();
+                            if (dateFrom && t < new Date(dateFrom).getTime()) matchesDate = false;
+                            if (dateTo && t > new Date(dateTo).getTime()) matchesDate = false;
+                        }
+                    }
+                    return matchesSearch && matchesStatus && matchesName && matchesClass && matchesStationery && matchesDate;
+                });
+
+                // Sıralama
+                const key = window.appState.sortConfig.key;
+                const dir = window.appState.sortConfig.direction === 'asc' ? 1 : -1;
+                filtered.sort((a, b) => {
+                    if (a.isDone && !b.isDone) return 1;
+                    if (!a.isDone && b.isDone) return -1;
+                    if (key === 'date') {
+                        const aDate = (a.dates && a.dates.length) ? new Date(a.dates.slice().sort()[0]).getTime() : Infinity;
+                        const bDate = (b.dates && b.dates.length) ? new Date(b.dates.slice().sort()[0]).getTime() : Infinity;
+                        return (aDate - bDate) * dir;
+                    }
+                    let valA = (a[key] || '').toString().toLowerCase();
+                    let valB = (b[key] || '').toString().toLowerCase();
+                    return valA.localeCompare(valB) * dir;
+                });
+
+                document.getElementById('examCountInfo').innerHTML = `Listelenen deneme sayısı: ${filtered.length} (Toplam: ${window.appState.exams.length}) <span class="ml-2 font-bold text-indigo-600">(Seçili: ${window.appState.selectedExamIds.size})</span>`;
+
+                if(filtered.length === 0) {
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    return;
+                }
+                document.getElementById('emptyState').classList.add('hidden');
+
+                filtered.forEach(exam => {
+                    const tr = document.createElement('tr');
+                    tr.className = `hover:bg-gray-50 transition ${exam.isDone ? 'row-completed' : ''}`;
+                    
+                    const dateDisplay = (exam.dates && exam.dates.length) 
+                        ? exam.dates.slice().sort().map(d => `<span class="inline-block bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded border border-indigo-100 mr-1 mb-1">${dateUtils.formatDate(d)}</span>`).join('')
+                        : '<span class="text-gray-400 italic">Tarih yok</span>';
+
+                    tr.innerHTML = `
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <input type="checkbox" class="row-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" 
+                                data-id="${exam.id}" tabindex="-1"
+                                ${window.appState.selectedExamIds.has(exam.id) ? 'checked' : ''}
+                                onchange="uiManager.toggleSelectRow('${exam.id}', this.checked)">
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <button type="button" tabindex="-1" onclick="dataManager.toggleStatus('${exam.id}')" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.isDone ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}">
+                                <i class="fa-solid ${exam.isDone ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
+                                ${exam.isDone ? 'Uygulandı' : 'Bekliyor'}
+                            </button>
+                        </td>
+                        <td class="px-4 py-4 font-medium text-gray-900" data-copyable="true">${exam.name}</td>
+                        <td class="px-4 py-4 text-gray-500" data-copyable="true">${exam.classLevel}</td>
+                        <td class="px-4 py-4 text-gray-500 max-w-xs break-words" data-copyable="true">${dateDisplay}</td>
+                        <td class="px-4 py-4 text-gray-500">
+                            <input type="text" value="${exam.stationery || ''}" class="table-input w-full rounded-md px-2 py-1 text-sm" placeholder="Kırtasiye..." onchange="dataManager.updateField('${exam.id}', 'stationery', this.value)">
+                        </td>
+                        <td class="px-4 py-4 text-center text-gray-500">
+                            <input type="text" value="${exam.count || ''}" class="table-input w-20 text-center rounded-md px-2 py-1 text-sm" placeholder="Adet" onchange="dataManager.updateField('${exam.id}', 'count', this.value)">
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium no-print">
+                            <button tabindex="-1" onclick="dataManager.editExam('${exam.id}')" class="text-indigo-600 hover:text-indigo-900 mx-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button tabindex="-1" onclick="dataManager.deleteExam('${exam.id}')" class="text-red-600 hover:text-red-900 mx-1"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                    tr.querySelectorAll('td[data-copyable="true"]').forEach(td => td.addEventListener('dblclick', (e) => { e.stopPropagation(); uiManager.copyCell(td); }));
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+
+        // --- Modal Manager ---
+        const modalManager = {
+            open: (id) => document.getElementById(id).classList.add('active'),
+            close: (id) => document.getElementById(id).classList.remove('active'),
+            openExamModal: () => {
+                document.getElementById('examId').value = '';
+                document.getElementById('modalTitle').innerText = 'Yeni Deneme Ekle';
+                document.getElementById('examName').value = '';
+                document.getElementById('examClass').value = '8.Sınıf';
+                document.getElementById('examCount').value = '';
+                document.getElementById('examStationery').value = '';
+                document.getElementById('examIsDone').checked = false;
+                
+                document.getElementById('detailedDatesContainer').innerHTML = '';
+                modalManager.addDateRow(); // Boş bir satır ekle
+                modalManager.open('examModal');
+            },
+            onClassChange: () => {
+                // Sınıf değiştiğinde mevcut tarih bloklarındaki sınıfları güncellemek isterseniz burayı kullanabilirsiniz
+                // Ancak kullanıcı deneyimi açısından mevcut veriyi silmemek için şimdilik sadece yeni eklenenler güncellenir.
+                // İstenirse tüm blokları yeniden render edebiliriz ama veri kaybı riski var.
+            },
+            addDateRow: (dateValue = '', sessions = {}) => {
+                const container = document.getElementById('detailedDatesContainer');
+                const classStr = document.getElementById('examClass').value;
+                const subClasses = classUtils.splitClasses(classStr);
+
+                if(subClasses.length === 0) {
+                    alert('Lütfen önce sınıf seviyesini giriniz.');
+                    return;
+                }
+
+                const blockId = 'block-' + Date.now() + Math.random().toString(16).slice(2);
+                const div = document.createElement('div');
+                div.className = 'date-block bg-white p-3 rounded-lg border border-gray-200 shadow-sm relative';
+                div.id = blockId;
+
+                // Varsayılan saatler (Tarih varsa ona göre, yoksa boş)
+                let defaultTimes = { s1: '', s2: '' };
+                if (dateValue) {
+                     defaultTimes = dateUtils.getDefaultTimes(dateValue);
+                }
+
+                let html = `
+                    <div class="flex items-center gap-2 mb-3 bg-gray-50 p-2 rounded">
+                        <span class="text-sm font-bold text-gray-700"><i class="fa-regular fa-calendar"></i> Tarih:</span>
+                        <input type="date" value="${dateValue}" class="exam-date-input w-full rounded border-gray-300 text-sm focus:ring-indigo-500"
+                               onchange="modalManager.onDateChange('${blockId}', this.value)">
+                        <button type="button" onclick="this.closest('.date-block').remove()" class="text-red-500 hover:text-red-700 ml-2">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-2 session-container">
+                `;
+
+                subClasses.forEach(subClass => {
+                    const sessionData = sessions[subClass] || defaultTimes;
+                    // Eğer sessions objesi boşsa ve tarih varsa, defaultTimes kullan
+                    // Eğer tarih yoksa boş gelir
+                    const isActive = sessions[subClass] ? 'checked' : (Object.keys(sessions).length === 0 ? 'checked' : '');
+
+                    html += `
+                        <div class="session-row grid grid-cols-12 gap-2 items-center border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                            <div class="col-span-3 flex items-center">
+                                <input type="checkbox" class="class-check rounded text-indigo-600 mr-2" value="${subClass}" ${isActive}>
+                                <span class="text-xs font-semibold text-gray-600">${subClass}</span>
+                            </div>
+                            <div class="col-span-9 grid grid-cols-2 gap-2">
+                                <input type="text" class="session-input-1 w-full text-xs rounded border-gray-300" value="${sessionData.session1 || sessionData.s1 || ''}" placeholder="1. Oturum">
+                                <input type="text" class="session-input-2 w-full text-xs rounded border-gray-300" value="${sessionData.session2 || sessionData.s2 || ''}" placeholder="2. Oturum">
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+                div.innerHTML = html;
+                container.appendChild(div);
+
+                // Eğer yeni eklenen satırsa ve tarih yoksa saatleri boş bırak, tarih girilince dolduracağız.
+                // Eğer tarih parametre olarak geldiyse zaten yukarıda defaultTimes ile doldu.
+            },
+            onDateChange: (blockId, dateValue) => {
+                if (!dateValue) return;
+                const times = dateUtils.getDefaultTimes(dateValue);
+                const block = document.getElementById(blockId);
+                
+                // Sadece boş olan veya kullanıcı tarafından henüz özel bir şey girilmemiş (varsayalım) alanları doldur
+                // Kullanıcı kolaylığı için hepsini güncelleyelim, kullanıcı isterse değiştirir.
+                const inputs1 = block.querySelectorAll('.session-input-1');
+                const inputs2 = block.querySelectorAll('.session-input-2');
+                
+                inputs1.forEach(input => input.value = times.s1);
+                inputs2.forEach(input => input.value = times.s2);
+            }
+        };
+
+        // --- Excel Manager ---
+        const excelManager = {
+            handleFile: (input) => {
+                const file = input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const targetSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('lgs deneme')) || workbook.SheetNames[0];
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[targetSheetName], { defval: "" });
+                    excelManager.processData(jsonData);
+                    input.value = '';
+                };
+                reader.readAsArrayBuffer(file);
+            },
+            processData: (data) => {
+                const newExams = data.map(row => {
+                    const name = row['Deneme Türü'] || 'İsimsiz Deneme';
+                    const classLevel = row['Sınıf'] || '8.Sınıf';
+                    let dateRaw = row['Deneme Uygulama Tarihi '] || row['Deneme Uygulama Tarihi'] || '';
+                    
+                    let parsedDate = '';
+                    if(dateRaw) {
+                        if(!isNaN(dateRaw) && typeof dateRaw === 'number') {
+                             const date = XLSX.SSF.parse_date_code(dateRaw);
+                             const d = new Date(date.y, date.m-1, date.d);
+                             parsedDate = dateUtils.toInputDateString(d);
+                        } else {
+                             parsedDate = dateUtils.parseTurkishDateString(dateRaw) || '';
+                        }
+                    }
+
+                    // --- OTOMATİK SAAT VE DETAYLI TARİH OLUŞTURMA ---
+                    const detailedDates = [];
+                    if (parsedDate) {
+                        const defaultTimes = dateUtils.getDefaultTimes(parsedDate);
+                        const subClasses = classUtils.splitClasses(classLevel);
+                        const sessionObj = {};
+                        
+                        // Her alt sınıf için varsayılan saati ata
+                        subClasses.forEach(cls => {
+                            sessionObj[cls] = { session1: defaultTimes.s1, session2: defaultTimes.s2 };
+                        });
+
+                        detailedDates.push({
+                            date: parsedDate,
+                            sessions: sessionObj
+                        });
+                    }
+
+                    return {
+                        id: Date.now() + Math.random().toString(16).slice(2),
+                        name, classLevel, count: '', stationery: '', isDone: false,
+                        dates: parsedDate ? [parsedDate] : [],
+                        detailedDates: detailedDates // Yeni yapı dolduruldu
+                    };
+                });
+
+                if(confirm(`${newExams.length} adet kayıt bulundu. Mevcut listeye eklensin mi?`)) {
+                    window.appState.exams = [...window.appState.exams, ...newExams];
+                    uiManager.renderTable();
+                    filterManager.rebuildOptions();
+                    alert('İçe aktarma başarılı! Saatler güne göre otomatik ayarlandı.');
+                }
+            }
+        };
+
+        // --- WhatsApp Manager ---
+        const whatsappManager = {
+            currentMessage: '',
+            openStationeryModal: () => {
+                const selectedIds = Array.from(window.appState.selectedExamIds);
+                if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
+
+                const selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
+                const nowLocal = dateUtils.toInputDateString(new Date());
+                const nowFormatted = dateUtils.formatDate(nowLocal);
+                const supplierName = selectedExams[0].stationery || 'Tedarikçi Girilmedi';
+
+                // GÜNCELLEME: Emoji değişti, Tarih -> Uygulama Tarihi, ** -> *
+                let message = `📋 *Fenomen Çocuk Kulübü Deneme Sipariş Listesi*\n\nSayın *${supplierName}* çalışanı firmamız adına sipariş isteğimiz vardır gerekli bilgileri yolluyorum lütfen bize dönüş yapın.\n\n🕒 *Deneme sipariş tarihi:* ${nowFormatted}\n\n`;
+
+                selectedExams.forEach(exam => {
+                    const dateStr = (exam.dates && exam.dates.length > 0) ? dateUtils.formatDate(exam.dates[0]) : 'Tarih Belirsiz';
+                    const stat = exam.stationery || 'Tedarikçi Girilmedi';
+                    
+                    message += `📌 *Sınıf/Deneme:* ${exam.classLevel} - *${exam.name}*\n`;
+                    message += `📅 *Uygulama Tarihi:* ${dateStr}\n`;
+                    message += `🏢 *Kırtasiye:* *${stat}*\n`;
+                    
+                    const classes = classUtils.splitClasses(exam.classLevel);
+                    const counts = (exam.count || '').toString().split('/').map(c => c.trim());
+
+                    if (classes.length > 1 && counts.length > 1) {
+                         message += `📦 *Adet Detayı:*\n`;
+                         classes.forEach((cls, idx) => {
+                             const cnt = counts[idx] || 'Belirtilmedi';
+                             message += `   🔸 ${cls}: *${cnt} Adet*\n`;
+                         });
+                    } else {
+                        message += `📦 *Adet:* *${exam.count || '0'}*\n`;
+                    }
+                    message += `-------------------------\n`;
+                });
+                message += `\nİyi çalışmalar dilerim.`;
+                document.getElementById('waModalTitle').innerText = 'Kırtasiye Sipariş Mesajı';
+                document.getElementById('waMessageArea').value = message;
+                modalManager.open('waModal');
+            },
+            openParentModal: () => {
+                const selectedIds = Array.from(window.appState.selectedExamIds);
+                if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
+                const selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
+                
+                // GÜNCELLEME: Başlık ve ** yerine * kullanımı
+                let message = `📢 *Fenomen Çocuk Kulübü Deneme Bilgilendirmesi*\n\nSayın Velilerimiz, Öğrencilerimizin katılacağı deneme sınav programı aşağıdadır:\n\n`;
+
+                selectedExams.forEach(exam => {
+                    message += `📘 *${exam.name}* (${exam.classLevel})\n`;
+                    
+                    // Benzersiz tarih kontrolü
+                    const uniqueDates = exam.detailedDates ? [...new Set(exam.detailedDates.map(d => d.date))] : (exam.dates || []);
+                    
+                    if(exam.detailedDates && exam.detailedDates.length > 0) {
+                        
+                        // TARİHE GÖRE SIRALAMA EKLENDİ (ESKİDEN YENİYE)
+                        const sortedDates = [...exam.detailedDates].sort((a, b) => new Date(a.date) - new Date(b.date));
+                        
+                        // Yeni yapıdan okuma
+                        sortedDates.forEach(dd => {
+                            const formattedDate = dateUtils.formatDate(dd.date);
+                            message += `🗓 *${formattedDate}*\n`;
+                            
+                            // O tarihteki sınıfları ve saatleri listele
+                            if (dd.sessions) {
+                                Object.keys(dd.sessions).forEach(subCls => {
+                                    const sess = dd.sessions[subCls];
+                                    if(sess && (sess.session1 || sess.session2)) {
+                                        message += `   🔸 *${subCls}*\n`;
+                                        message += `      ⏰ 1. Oturum: ${sess.session1}\n`;
+                                        message += `      ⏰ 2. Oturum: ${sess.session2}\n`;
+                                    }
+                                });
+                            }
+                            message += `\n`; // Günler arası boşluk
+                        });
+                    } else if (exam.dates && exam.dates.length > 0) {
+                        // Eski veriden okuma (Fallback)
+                        // Tarihleri sırala
+                        const sortedOldDates = [...exam.dates].sort();
+                        sortedOldDates.forEach(d => {
+                             message += `🗓 *${dateUtils.formatDate(d)}*\n`;
+                             message += `      ⏰ _Saat bilgisi için kurumla iletişime geçiniz._\n`;
+                        });
+                    } else {
+                        message += `🗓 *Tarih:* Henüz belirlenmedi.\n`;
+                    }
+
+                    if (uniqueDates.length > 1) {
+                         message += `⚠️ *Bir sınıf için birden fazla deneme günü görünse bile bu sınav aynı denemedir. Öğrencimiz kendi sınıfına uygun olan günlerden sadece birinde sınava girebilir. Aynı denemeye birden fazla kez girilemez.*\n`;
+                    }
+
+                    message += `-------------------------\n`;
+                });
+
+                message += `Öğrencilerimize başarılar dileriz.\n*Fenomen Çocuk Kulübü*`;
+
+                document.getElementById('waModalTitle').innerText = 'Veli Bilgilendirme Mesajı';
+                document.getElementById('waMessageArea').value = message;
+                modalManager.open('waModal');
+            },
+            send: () => {
+                const text = document.getElementById('waMessageArea').value;
+                const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
+                modalManager.close('waModal');
+            },
+            copyToClipboard: () => {
+                const text = document.getElementById('waMessageArea');
+                text.select();
+                text.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(text.value).then(() => {
+                    const btn = document.querySelector('button[onclick="whatsappManager.copyToClipboard()"]');
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Kopyalandı';
+                    setTimeout(() => btn.innerHTML = originalHTML, 2000);
+                });
+            }
+        };
+
+        // --- Print Manager ---
+        const printManager = {
+            columnDefs: [
+                { id: 'status', label: 'Durum' }, { id: 'name', label: 'Deneme Kategorisi' },
+                { id: 'class', label: 'Sınıf' }, { id: 'dates', label: 'Uygulama Tarihleri' },
+                { id: 'stationery', label: 'Kırtasiye' }, { id: 'count', label: 'Adet' }
+            ],
+            openSettings: () => modalManager.open('printSettingsModal'),
+            toggleColumn: (colIndex, isVisible) => {},
+            bulkSetStatus: (newStatus) => {
+                const selectedIds = Array.from(window.appState.selectedExamIds);
+                if (selectedIds.length === 0) { alert('Lütfen seçim yapın.'); return; }
+                window.appState.exams.forEach(exam => { if (selectedIds.includes(exam.id)) exam.isDone = newStatus; });
+                uiManager.renderTable();
+            },
+            setTodayDate: () => { document.getElementById('printCustomDate').value = dateUtils.toInputDateString(new Date()); },
+            executePrint: function () {
+                const printOnlySelected = document.getElementById('printOnlySelected').checked;
+                const checkboxes = document.querySelectorAll('#printSettingsModal input[type="checkbox"]:not(#printOnlySelected)');
+                const activeColumns = this.columnDefs.filter((col, index) => checkboxes[index].checked);
+                const visibleRowCheckboxes = document.querySelectorAll('.row-checkbox');
+                
+                let idsToPrint = Array.from(visibleRowCheckboxes).map(cb => cb.getAttribute('data-id'));
+                if (printOnlySelected) idsToPrint = idsToPrint.filter(id => window.appState.selectedExamIds.has(id));
+                if (idsToPrint.length === 0) { alert('Yazdırılacak veri yok.'); return; }
+
+                const showDate = document.getElementById('printShowDate')?.checked;
+                const customDate = document.getElementById('printCustomDate').value;
+                const headerDate = showDate ? dateUtils.formatDate(customDate || new Date()) : '';
+                const orientation = document.querySelector('input[name="printOrientation"]:checked').value;
+                const compact = document.getElementById('printCompact')?.checked;
+
+                let styleEl = document.getElementById('print-orientation-style');
+                if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'print-orientation-style'; document.head.appendChild(styleEl); }
+                styleEl.textContent = `@media print { @page { size: A4 ${orientation}; margin: 15mm; } }`;
+
+                const examsToPrint = window.appState.exams.filter(e => idsToPrint.includes(e.id));
+                const container = document.getElementById('printLayout');
+                const cellPadding = compact ? 'py-1 px-1' : 'py-2 px-2';
+
+                let html = `<div class="max-w-5xl mx-auto"><div class="text-center mb-6"><h1 class="text-2xl font-bold mb-1">Fenomen Çocuk Kulübü Deneme Sınavları</h1><p class="text-sm text-gray-700">Deneme Sayısı: ${examsToPrint.length}</p>${showDate ? `<p class="text-xs text-gray-600">Yazdırma Tarihi: ${headerDate}</p>` : ''}</div><table class="w-full border-collapse text-xs"><thead><tr>`;
+                activeColumns.forEach(col => html += `<th class="border-b border-gray-500 text-left ${cellPadding} font-semibold">${col.label}</th>`);
+                html += `</tr></thead><tbody>`;
+
+                examsToPrint.forEach(exam => {
+                    html += '<tr>';
+                    activeColumns.forEach(col => {
+                        let text = '';
+                        if(col.id === 'status') text = exam.isDone ? 'Uygulandı' : 'Bekliyor';
+                        else if(col.id === 'name') text = exam.name;
+                        else if(col.id === 'class') text = exam.classLevel;
+                        else if(col.id === 'dates') {
+                            // GÜNCELLEME: YAZDIRMADA SINIF BİLGİSİ EKLENDİ VE SIRALANDI
+                            if (exam.detailedDates && exam.detailedDates.length > 0) {
+                                // Tarihleri sırala
+                                const sorted = [...exam.detailedDates].sort((a,b) => new Date(a.date) - new Date(b.date));
+                                text = sorted.map(dd => {
+                                    const dStr = dateUtils.formatDate(dd.date);
+                                    // Sınıf bilgilerini al (Sınıf kelimesini temizle)
+                                    const cls = Object.keys(dd.sessions || {})
+                                        .map(s => s.replace('.Sınıf','').replace('.Sinif',''))
+                                        .join('-');
+                                    // Örnek: 15 Aralık (... (5-6))
+                                    return `${dStr} ${cls ? `<span class="text-gray-600 font-semibold">(${cls})</span>` : ''}`;
+                                }).join('<br>');
+                            } else {
+                                text = (exam.dates || []).sort().map(d => dateUtils.formatDate(d)).join('<br>');
+                            }
+                        }
+                        else if(col.id === 'stationery') text = exam.stationery;
+                        else if(col.id === 'count') {
+                            const classes = classUtils.splitClasses(exam.classLevel);
+                            const counts = (exam.count || '').toString().split('/').map(c => c.trim());
+                            
+                            if (classes.length > 1 && counts.length > 1) {
+                                text = classes.map((cls, idx) => {
+                                    const cnt = counts[idx] || '-';
+                                    return `<div class="whitespace-nowrap"><span class="font-semibold text-gray-600">${cls}:</span> ${cnt}</div>`;
+                                }).join('');
+                            } else {
+                                text = exam.count;
+                            }
+                        }
+                        html += `<td class="align-top border-b border-gray-200 ${cellPadding}">${text || ''}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += `</tbody></table></div>`;
+                container.innerHTML = html;
+                modalManager.close('printSettingsModal');
+                setTimeout(() => window.print(), 100);
+            }
+        };
+
+        window.uiManager = uiManager;
+        window.modalManager = modalManager;
+        window.dataManager = dataManager;
+        window.excelManager = excelManager;
+        window.whatsappManager = whatsappManager;
+        window.printManager = printManager;
+        window.filterManager = filterManager;
+
+        // Başlangıç
+        filterManager.rebuildOptions();
+        uiManager.renderTable();
+    </script>
+</body>
+</html>
