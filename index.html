@@ -465,19 +465,17 @@
     </div>
 
     <script type="module">
-        // --- FIREBASE GÜNCELLEMESİ YAPILDI ---
-        // Verilen config ile uyumlu ve tarayıcıda çalışacak CDN importları kullanıldı.
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
-        import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getDatabase, ref, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-        // Firebase Yapılandırması (Kullanıcının verdiği güncel bilgiler)
+        // Firebase Yapılandırması
         const firebaseConfig = {
             apiKey: "AIzaSyAIzu6aNQstwQCdMWODyIwiaVVBm63OeGw",
             authDomain: "odevfeno.firebaseapp.com",
             databaseURL: "https://odevfeno-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "odevfeno",
-            storageBucket: "odevfeno.firebasestorage.app",
+            // Firebase Storage alanı (projeId.appspot.com formatında olmalı)
+            storageBucket: "odevfeno.appspot.com",
             messagingSenderId: "662757516934",
             appId: "1:662757516934:web:0042188832f63deb6fd307",
             measurementId: "G-4Q99NQRB38"
@@ -485,7 +483,6 @@
 
         // Firebase Başlatma
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app); // Analytics eklendi
         const db = getDatabase(app);
 
         // Global Değişkenler
@@ -497,26 +494,31 @@
 
         // Cloud Manager (Firebase İşlemleri)
         window.cloudManager = {
+            // Mevcut sınav listesini Firebase veritabanına kaydeder.
             save: () => {
+                if (!window.appState.exams) { alert('Kaydedilecek veri yok.'); return; }
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
-                    set(ref(db, 'denemetest'), window.appState.exams)
+                    const examsToSave = JSON.parse(JSON.stringify(window.appState.exams));
+                    set(ref(db, 'denemetest'), examsToSave)
                         .then(() => alert('Liste başarıyla kaydedildi!'))
                         .catch((error) => alert('Kaydetme hatası: ' + error.message));
                 }
             },
-            load: () => {
-                const dbRef = ref(db, 'denemetest');
-                onValue(dbRef, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        window.appState.exams = data || [];
+            // Firebase veritabanından sınav listesini okur. get() yöntemi ile veriye tek sefer erişilir.
+            load: async () => {
+                try {
+                    const snapshot = await get(ref(db, 'denemetest'));
+                    if (snapshot.exists()) {
+                        window.appState.exams = snapshot.val() || [];
                         uiManager.renderTable();
-                        window.filterManager && window.filterManager.rebuildOptions();
+                        if (window.filterManager) window.filterManager.rebuildOptions();
                         alert('Liste Firebase\'den güncellendi.');
                     } else {
                         alert('Kayıtlı veri bulunamadı.');
                     }
-                }, { onlyOnce: true });
+                } catch (error) {
+                    alert('Veri çekme hatası: ' + (error.message || error));
+                }
             }
         };
     </script>
@@ -559,23 +561,41 @@
                 const year = date.getFullYear();
                 return `${day} ${month} ${weekday} ${year}`;
             },
+            /**
+             * Belirtilen tarih dizesini Pazar günü olup olmadığını kontrol eder.
+             *
+             * JavaScript'te 'YYYY-MM-DD' formatındaki bir tarih UTC saat diliminde
+             * parse edilir ve bu durum yerel saat diliminde gün kaymasına sebep
+             * olabilir. Kullanıcının girdiği tarihi yerel saat dilimine göre
+             * değerlendirmek için yıl, ay ve günü ayrıştırıp yeni Date
+             * nesnesi oluşturuyoruz. Böylece getDay() her zaman beklenen
+             * haftanın gününü döndürür.
+             * @param {string} dateStr yyyy-mm-dd formatında tarih
+             * @returns {boolean} Pazar günü ise true
+             */
             isSunday: (dateStr) => {
-                const d = new Date(dateStr);
+                if (!dateStr) return false;
+                const parts = dateStr.split('-');
+                if (parts.length !== 3) return false;
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+                const day = parseInt(parts[2], 10);
+                const d = new Date(year, month, day);
                 return d.getDay() === 0; // 0 = Pazar
             },
-            // --- GÜNCELLEME BURADA YAPILDI: Tarih mantığı kesinleştirildi ---
+
+            /**
+             * Verilen tarihin Pazar olup olmadığına göre varsayılan oturum saatlerini döndürür.
+             * Pazar günleri sabah oturumları, diğer günler ise akşam oturumları atanır.
+             * @param {string} dateStr yyyy-mm-dd formatında tarih
+             * @returns {{s1: string, s2: string}} Oturum saatleri
+             */
             getDefaultTimes: (dateStr) => {
-                if (!dateStr) return { s1: '', s2: '' };
-                const d = new Date(dateStr);
-                
-                // JavaScript'te getDay(): 0=Pazar, 1=Pazartesi ... 6=Cumartesi
-                if (d.getDay() === 0) {
-                    // Pazar ise sabah oturumu
+                // Girilen tarih Pazar ise sabah oturumu, aksi halde akşam oturumu atansın
+                if (dateUtils.isSunday(dateStr)) {
                     return { s1: '09:30 - 10:45', s2: '11:00 - 12:20' };
-                } else {
-                    // Pazar HARİCİ tüm günlerde akşam oturumu (16:30)
-                    return { s1: '16:30 - 17:45', s2: '17:55 - 19:15' };
                 }
+                return { s1: '16:30 - 17:45', s2: '17:55 - 19:15' };
             }
         };
 
@@ -1061,10 +1081,10 @@
                 const times = dateUtils.getDefaultTimes(dateValue);
                 const block = document.getElementById(blockId);
                 
-                // Sadece boş olan veya kullanıcı tarafından henüz özel bir şey girilmemiş alanları doldur
+                // Kullanıcı tarih değiştirdiğinde tüm oturum saatlerini yeni varsayılanlara güncelleyelim.
+                // Daha önce elle bir saat girilmiş olsa bile, tarih değişikliğinde uygun oturum saatleri atanır.
                 const inputs1 = block.querySelectorAll('.session-input-1');
                 const inputs2 = block.querySelectorAll('.session-input-2');
-                
                 inputs1.forEach(input => { input.value = times.s1; });
                 inputs2.forEach(input => { input.value = times.s2; });
             }
