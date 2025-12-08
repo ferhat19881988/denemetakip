@@ -475,36 +475,23 @@
             authDomain: "odevfeno.firebaseapp.com",
             databaseURL: "https://odevfeno-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "odevfeno",
-            // Firebase Storage alanı (projeId.appspot.com formatında olmalı)
             storageBucket: "odevfeno.appspot.com",
             messagingSenderId: "662757516934",
             appId: "1:662757516934:web:0042188832f63deb6fd307",
             measurementId: "G-4Q99NQRB38"
         };
 
-        // Firebase Başlatma
         const app = initializeApp(firebaseConfig);
-        // The Realtime Database URL must be passed explicitly when your database
-        // lives in a non‑default region (e.g. europe‑west1). Without this the
-        // SDK will attempt to connect to the default us‑central1 endpoint and
-        // silently fail to read/write any data. Supplying the URL here ensures
-        // all reads and writes target your actual database instance.
         const db = getDatabase(app, firebaseConfig.databaseURL);
-
-        // Authenticate anonymously. By default Firebase Realtime Database rules
-        // restrict write operations to authenticated users. Enabling anonymous
-        // auth and signing in here allows the app to persist data without
-        // exposing your API key or requiring a user login. Make sure
-        // anonymous sign‑in is enabled in your Firebase console.
         const auth = getAuth(app);
+        
         signInAnonymously(auth).catch((error) => {
             console.error('Anonymous auth failed:', error);
         });
+        
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 console.debug('Signed in anonymously with uid:', user.uid);
-            } else {
-                console.warn('User signed out of anonymous session');
             }
         });
 
@@ -515,118 +502,77 @@
             selectedExamIds: new Set()
         };
 
-        /**
-         * Firebase Realtime Database anahtarları belirli karakterleri
-         * (örneğin ".", "#", "$", "/", "[", "]") ve kontrol karakterlerini
-         * içeremez. Uygulamanın oturum bilgileri (sessions) her sınıf adını
-         * anahtar olarak kullanıyor. Örneğin "8.Sınıf" ifadesinde nokta (.)
-         * bulunduğu için veritabanına yazarken hata alınır. Bu yardımcı
-         * fonksiyonlar, yazma sırasında anahtarları güvenli hale getirir ve
-         * okuma sırasında orijinal adlarına geri dönüştürür.
-         */
-        const firebaseKeyUtils = {
-            // Belirtilen anahtarı encode ederek nokta ve diğer yasak
-            // karakterleri güvenli hale getirir. encodeURIComponent
-            // yalnızca boşluk, nokta gibi karakterleri %XX formatında
-            // kodlar ve Firebase için güvenlidir.
-            sanitizeKey: (key) => encodeURIComponent(key),
-            // encodeURIComponent ile kodlanmış anahtarı geri çözer.
-            desanitizeKey: (key) => {
-                try {
-                    return decodeURIComponent(key);
-                } catch (e) {
-                    // decode sırasında hata olursa anahtarı olduğu gibi döndür.
-                    return key;
-                }
-            },
-            // Tek bir exam nesnesini kopyalar ve sessions anahtarlarını
-            // güvenli hale getirir. Orijinal exam nesnesini değiştirmez.
-            sanitizeExam: (exam) => {
-                const copy = JSON.parse(JSON.stringify(exam));
-                if (copy.detailedDates && Array.isArray(copy.detailedDates)) {
-                    copy.detailedDates = copy.detailedDates.map(dd => {
-                        const newSessions = {};
-                        if (dd.sessions && typeof dd.sessions === 'object') {
-                            Object.keys(dd.sessions).forEach(cls => {
-                                const safeKey = firebaseKeyUtils.sanitizeKey(cls);
-                                newSessions[safeKey] = dd.sessions[cls];
-                            });
-                        }
-                        return { ...dd, sessions: newSessions };
-                    });
-                }
-                return copy;
-            },
-            // Firebase'den okunan exam nesnesinin oturum anahtarlarını orijinal
-            // haline getirir. Dizinin içindeki her detailedDates elemanının
-            // sessions alanı üzerinde çalışır. Orijinal exam nesnesini
-            // değiştirmek yerine kopya döndürür.
-            desanitizeExam: (exam) => {
-                const copy = JSON.parse(JSON.stringify(exam));
-                if (copy.detailedDates && Array.isArray(copy.detailedDates)) {
-                    copy.detailedDates = copy.detailedDates.map(dd => {
-                        const newSessions = {};
-                        if (dd.sessions && typeof dd.sessions === 'object') {
-                            Object.keys(dd.sessions).forEach(key => {
-                                const originalKey = firebaseKeyUtils.desanitizeKey(key);
-                                newSessions[originalKey] = dd.sessions[key];
-                            });
-                        }
-                        return { ...dd, sessions: newSessions };
-                    });
-                }
-                return copy;
-            }
-        };
-
-        // Cloud Manager (Firebase İşlemleri)
-        //
-        // Firebase Realtime Database dizinindeki veriyi okur/yazar.
-        // Kayıtları dizi yerine nesne olarak depoluyoruz; böylece her bir
-        // sınav benzersiz anahtar (id) ile saklanır ve indeksleme sorunu yaşanmaz.
-        //
-        // Kaydet düğmesine basıldığında mevcut veriler tamamen silinir ve
-        // yeniden yazılır. Bu işlem sadece deneme/test alanı altında yapılır,
-        // böylece mevcut diğer Firebase verileri etkilenmez.
         const DATA_PATH = 'denemeTest';
+
+        // --- Cloud Manager ---
+        // Firebase'de geçersiz karakterleri (örn: '.') encode/decode etmek için
+        // yardımcı fonksiyonlar ve güncellenmiş save/load mantığı.
         window.cloudManager = {
-            // Mevcut sınav listesini Firebase veritabanına kaydeder.
             save: () => {
                 const examsArray = window.appState.exams || [];
-                if (!examsArray || examsArray.length === 0) {
+                if (examsArray.length === 0) {
                     alert('Kaydedilecek veri yok.');
                     return;
                 }
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
-                    // Diziyi nesneye dönüştürürken her sınavı sanitizeExam ile
-                    // kopyalayıp oturum anahtarlarını güvenli hale getiriyoruz.
                     const examsObject = {};
+                    
+                    // Derin kopya al ve anahtarları sanitize et (Nokta -> _pkt_)
                     examsArray.forEach(exam => {
-                        const safeExam = firebaseKeyUtils.sanitizeExam(exam);
-                        examsObject[exam.id] = safeExam;
+                        const examCopy = JSON.parse(JSON.stringify(exam));
+                        
+                        if (examCopy.detailedDates && Array.isArray(examCopy.detailedDates)) {
+                            examCopy.detailedDates.forEach(dateBlock => {
+                                if (dateBlock.sessions) {
+                                    const cleanSessions = {};
+                                    Object.keys(dateBlock.sessions).forEach(key => {
+                                        // "8.Sınıf" -> "8_pkt_Sınıf" dönüşümü
+                                        const safeKey = key.replace(/\./g, '_pkt_');
+                                        cleanSessions[safeKey] = dateBlock.sessions[key];
+                                    });
+                                    dateBlock.sessions = cleanSessions;
+                                }
+                            });
+                        }
+                        examsObject[exam.id] = examCopy;
                     });
-                    // update() yalnızca denemeTest düğümünü günceller; diğer
-                    // üst seviye veriler etkilenmez. Hata durumunda uyarı
+
                     update(ref(db, '/'), { [DATA_PATH]: examsObject })
                         .then(() => {
                             alert('Liste başarıyla kaydedildi!');
                         })
                         .catch((error) => {
                             console.error('Kaydetme hatası:', error);
-                            alert('Kaydetme hatası: ' + (error.message || error));
+                            alert('Kaydetme hatası: ' + error.message);
                         });
                 }
             },
-            // Firebase veritabanından sınav listesini okur. get() yöntemi ile veriye tek sefer erişilir.
             load: async () => {
                 try {
                     const snapshot = await get(ref(db, DATA_PATH));
                     if (snapshot.exists()) {
                         const data = snapshot.val() || {};
-                        // Nesneyi diziye dönüştür ve oturum anahtarlarını
-                        // orijinal haline getir.
-                        const examsList = Object.values(data).map(item => firebaseKeyUtils.desanitizeExam(item));
-                        window.appState.exams = examsList;
+                        let loadedExams = Object.values(data);
+                        
+                        // Veriyi geri yükle: ( _pkt_ -> Nokta )
+                        loadedExams = loadedExams.map(exam => {
+                            if (exam.detailedDates && Array.isArray(exam.detailedDates)) {
+                                exam.detailedDates.forEach(dateBlock => {
+                                    if (dateBlock.sessions) {
+                                        const originalSessions = {};
+                                        Object.keys(dateBlock.sessions).forEach(safeKey => {
+                                            // "8_pkt_Sınıf" -> "8.Sınıf" dönüşümü
+                                            const originalKey = safeKey.replace(/_pkt_/g, '.');
+                                            originalSessions[originalKey] = dateBlock.sessions[safeKey];
+                                        });
+                                        dateBlock.sessions = originalSessions;
+                                    }
+                                });
+                            }
+                            return exam;
+                        });
+
+                        window.appState.exams = loadedExams;
                         uiManager.renderTable();
                         if (window.filterManager) {
                             window.filterManager.rebuildOptions();
@@ -643,19 +589,6 @@
     </script>
 
     <script>
-        // Bazı tarayıcılar modül betiklerini (type="module") paralel olarak yükler.
-        // Bu sayede module içerisinde tanımlanan window.appState henüz
-        // oluşturulmadan bu klasik betik çalışabilir. window.appState
-        // tanımlı değilse varsayılan bir obje oluştururuz ki aşağıdaki
-        // fonksiyonlar güvenle çalışabilsin.
-        if (!window.appState) {
-            window.appState = {
-                exams: [],
-                sortConfig: { key: 'date', direction: 'asc' },
-                selectedExamIds: new Set()
-            };
-        }
-
         // --- Date Utils ---
         const dateUtils = {
             monthMap: {
@@ -693,37 +626,17 @@
                 const year = date.getFullYear();
                 return `${day} ${month} ${weekday} ${year}`;
             },
-            /**
-             * Belirtilen tarih dizesini Pazar günü olup olmadığını kontrol eder.
-             *
-             * JavaScript'te 'YYYY-MM-DD' formatındaki bir tarih UTC saat diliminde
-             * parse edilir ve bu durum yerel saat diliminde gün kaymasına sebep
-             * olabilir. Kullanıcının girdiği tarihi yerel saat dilimine göre
-             * değerlendirmek için yıl, ay ve günü ayrıştırıp yeni Date
-             * nesnesi oluşturuyoruz. Böylece getDay() her zaman beklenen
-             * haftanın gününü döndürür.
-             * @param {string} dateStr yyyy-mm-dd formatında tarih
-             * @returns {boolean} Pazar günü ise true
-             */
             isSunday: (dateStr) => {
                 if (!dateStr) return false;
                 const parts = dateStr.split('-');
                 if (parts.length !== 3) return false;
                 const year = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+                const month = parseInt(parts[1], 10) - 1;
                 const day = parseInt(parts[2], 10);
                 const d = new Date(year, month, day);
-                return d.getDay() === 0; // 0 = Pazar
+                return d.getDay() === 0;
             },
-
-            /**
-             * Verilen tarihin Pazar olup olmadığına göre varsayılan oturum saatlerini döndürür.
-             * Pazar günleri sabah oturumları, diğer günler ise akşam oturumları atanır.
-             * @param {string} dateStr yyyy-mm-dd formatında tarih
-             * @returns {{s1: string, s2: string}} Oturum saatleri
-             */
             getDefaultTimes: (dateStr) => {
-                // Girilen tarih Pazar ise sabah oturumu, aksi halde akşam oturumu atansın
                 if (dateUtils.isSunday(dateStr)) {
                     return { s1: '09:30 - 10:45', s2: '11:00 - 12:20' };
                 }
@@ -754,8 +667,6 @@
                 const stationery = document.getElementById('examStationery').value;
                 const isDone = document.getElementById('examIsDone').checked;
                 
-                // Yeni Veri Yapısı: detailedDates
-                // [{ date: '2025-01-01', sessions: { '5.Sınıf': {s1, s2} } }]
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
                 
@@ -782,7 +693,6 @@
                     });
                 });
 
-                // Uyumluluk için eski dates dizisini de oluştur
                 const dates = detailedDates.map(d => d.date);
 
                 if (!name) { alert('Lütfen deneme kategorisini giriniz.'); return; }
@@ -790,7 +700,7 @@
 
                 const newExam = {
                     id, name, classLevel, count, stationery, dates, isDone,
-                    detailedDates: detailedDates // Yeni yapı
+                    detailedDates: detailedDates 
                 };
 
                 const existingIndex = window.appState.exams.findIndex(e => e.id === id);
@@ -836,20 +746,14 @@
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
                 
-                // Class change'i tetikle ki UI güncellensin
                 modalManager.onClassChange(); 
 
-                // Eğer yeni yapı varsa onu kullan, yoksa eskiden dönüştür
                 if (exam.detailedDates && exam.detailedDates.length > 0) {
                     exam.detailedDates.forEach(dd => modalManager.addDateRow(dd.date, dd.sessions));
                 } else if (exam.dates && exam.dates.length > 0) {
-                    // Eski veriyi dönüştürme (geriye dönük uyumluluk)
                     exam.dates.forEach(d => {
-                        // Eski yapıda sessions tek bir obje idi, onu kullanıyoruz
                         modalManager.addDateRow(d, exam.sessions || {});
                     });
-                } else {
-                    // Düzenlemede tarih yoksa boş satır eklemiyoruz, kullanıcı eklesin
                 }
 
                 modalManager.open('examModal');
@@ -871,6 +775,9 @@
         // --- Filtre Manager ---
         const filterManager = {
             rebuildOptions: () => {
+                // Güvenlik kontrolü
+                if (!window.appState || !window.appState.exams) return;
+                
                 const exams = window.appState.exams || [];
                 const categorySelect = document.getElementById('nameFilter');
                 const classSelect = document.getElementById('classFilter');
@@ -1083,7 +990,6 @@
                 document.getElementById('modalTitle').innerText = 'Yeni Deneme Ekle';
                 document.getElementById('examName').value = '';
                 
-                // GÜNCELLEME: Sınıf seviyesi başlangıçta boş
                 const classInput = document.getElementById('examClass');
                 classInput.value = ''; 
                 
@@ -1093,7 +999,6 @@
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
                 
-                // GÜNCELLEME: Tarih ekleme butonu durumunu güncelle
                 modalManager.onClassChange();
                 
                 modalManager.open('examModal');
@@ -1106,25 +1011,17 @@
                 if(!classVal || classVal.trim() === '') {
                     section.style.display = 'none';
                     warning.style.display = 'block';
-                    // Sınıf silindiyse tarihleri de temizle (veri tutarlılığı için)
                     document.getElementById('detailedDatesContainer').innerHTML = '';
                 } else {
                     section.style.display = 'block';
                     warning.style.display = 'none';
                     
-                    // Sınıf değiştiğinde mevcut tarih satırlarındaki sınıfları (tikleri) güncelle
                     const blocks = document.querySelectorAll('.date-block');
                     const subClasses = classUtils.splitClasses(classVal);
                     
                     blocks.forEach(block => {
                         const container = block.querySelector('.session-container');
                         if(container) {
-                            // Mevcut değerleri korumaya çalışabiliriz ama yapı değiştiği için
-                            // en temiz yöntem yeni sınıfa göre satırları yeniden oluşturmaktır.
-                            // Tarih değeri zaten block seviyesinde inputta duruyor, kaybolmaz.
-                            
-                            // Ancak kullanıcının girdiği saatleri kaybetmemek için basit bir map yapabiliriz.
-                            // Şimdilik basitçe yeniden render ediyoruz.
                             modalManager.renderSessions(container, subClasses, {});
                         }
                     });
@@ -1133,9 +1030,7 @@
             renderSessions: (container, subClasses, existingValues = {}) => {
                  let html = '';
                  subClasses.forEach(subClass => {
-                    const sessionData = existingValues[subClass] || { s1: '', s2: '' }; // Varsayılan boş
-                    // Eğer yeni oluşturuluyorsa ve tarih varsa addDateRow içinde defaultTimes verilecek.
-                    // Burası sadece class değişiminde tetiklenen re-render için.
+                    const sessionData = existingValues[subClass] || { s1: '', s2: '' }; 
                     
                     html += `
                         <div class="session-row grid grid-cols-12 gap-2 items-center border-b border-gray-100 last:border-0 pb-2 last:pb-0">
@@ -1167,7 +1062,6 @@
                 div.className = 'date-block bg-white p-3 rounded-lg border border-gray-200 shadow-sm relative';
                 div.id = blockId;
 
-                // Varsayılan saatler (Tarih varsa ona göre, yoksa boş)
                 let defaultTimes = { s1: '', s2: '' };
                 if (dateValue) {
                      defaultTimes = dateUtils.getDefaultTimes(dateValue);
@@ -1185,7 +1079,6 @@
                     <div class="space-y-2 session-container">
                 `;
 
-                // Session satırlarını oluştur
                 subClasses.forEach(subClass => {
                     const sessionData = sessions[subClass] || defaultTimes;
                     const isActive = sessions[subClass] ? 'checked' : (Object.keys(sessions).length === 0 ? 'checked' : '');
@@ -1213,8 +1106,6 @@
                 const times = dateUtils.getDefaultTimes(dateValue);
                 const block = document.getElementById(blockId);
                 
-                // Kullanıcı tarih değiştirdiğinde tüm oturum saatlerini yeni varsayılanlara güncelleyelim.
-                // Daha önce elle bir saat girilmiş olsa bile, tarih değişikliğinde uygun oturum saatleri atanır.
                 const inputs1 = block.querySelectorAll('.session-input-1');
                 const inputs2 = block.querySelectorAll('.session-input-2');
                 inputs1.forEach(input => { input.value = times.s1; });
@@ -1501,7 +1392,9 @@
         window.filterManager = filterManager;
 
         // Başlangıç
-        filterManager.rebuildOptions();
+        if (filterManager && filterManager.rebuildOptions) {
+            filterManager.rebuildOptions();
+        }
         uiManager.renderTable();
     </script>
 </body>
