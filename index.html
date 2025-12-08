@@ -466,7 +466,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getDatabase, ref, set, onValue, remove, get, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
         // Firebase Yapılandırması
         const firebaseConfig = {
@@ -483,7 +484,29 @@
 
         // Firebase Başlatma
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        // The Realtime Database URL must be passed explicitly when your database
+        // lives in a non‑default region (e.g. europe‑west1). Without this the
+        // SDK will attempt to connect to the default us‑central1 endpoint and
+        // silently fail to read/write any data. Supplying the URL here ensures
+        // all reads and writes target your actual database instance.
+        const db = getDatabase(app, firebaseConfig.databaseURL);
+
+        // Authenticate anonymously. By default Firebase Realtime Database rules
+        // restrict write operations to authenticated users. Enabling anonymous
+        // auth and signing in here allows the app to persist data without
+        // exposing your API key or requiring a user login. Make sure
+        // anonymous sign‑in is enabled in your Firebase console.
+        const auth = getAuth(app);
+        signInAnonymously(auth).catch((error) => {
+            console.error('Anonymous auth failed:', error);
+        });
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.debug('Signed in anonymously with uid:', user.uid);
+            } else {
+                console.warn('User signed out of anonymous session');
+            }
+        });
 
         // Global Değişkenler
         window.appState = {
@@ -511,17 +534,23 @@
                     return;
                 }
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
-                    // Diziyi nesne haline dönüştürün. Her kayıt kendi id'si ile saklanır.
+                    // Convert the array into an object keyed by the exam ID.  We take a deep
+                    // copy of each exam to avoid accidentally persisting reactive
+                    // references from the UI state into the database.
                     const examsObject = {};
                     examsArray.forEach(exam => {
-                        // Derin kopya alarak reaktif bağlamdaki referansların bozulmasını engelleyin
                         examsObject[exam.id] = JSON.parse(JSON.stringify(exam));
                     });
-                    set(ref(db, DATA_PATH), examsObject)
+                    // Use update() instead of set(). Using update will create or replace
+                    // only the denemeTest node and leaves any other top‑level data
+                    // (availability, program etc.) untouched. This prevents accidental
+                    // deletion of unrelated data owned by other parts of your project.
+                    update(ref(db, '/'), { [DATA_PATH]: examsObject })
                         .then(() => {
                             alert('Liste başarıyla kaydedildi!');
                         })
                         .catch((error) => {
+                            console.error('Kaydetme hatası:', error);
                             alert('Kaydetme hatası: ' + error.message);
                         });
                 }
