@@ -52,9 +52,8 @@
         /* Yalnızca yazdırmada görünen layout */
         .print-layout { display: none; }
 
-        /* --- MOBİL İÇİN PROFESYONEL DOKUNUŞLAR (Responsive Table & Buttons) --- */
+        /* --- MOBİL İÇİN RESPONSIVE --- */
         @media (max-width: 640px) {
-            /* Tabloyu Kart Görünümüne Çevir */
             table, thead, tbody, th, td, tr { display: block; }
             thead tr { position: absolute; top: -9999px; left: -9999px; }
             
@@ -70,7 +69,7 @@
             td {
                 border-bottom: 1px solid #f3f4f6;
                 position: relative;
-                padding-left: 40% !important; /* Etiket için yer */
+                padding-left: 40% !important;
                 padding-top: 0.75rem !important;
                 padding-bottom: 0.75rem !important;
                 text-align: right;
@@ -82,7 +81,6 @@
             
             td:last-child { border-bottom: none; background-color: #f9fafb; justify-content: space-between; padding-left: 1rem !important; }
             
-            /* Checkbox satırı */
             td:first-child { 
                 padding-left: 1rem !important; 
                 justify-content: flex-start; 
@@ -90,7 +88,6 @@
                 border-bottom: 1px solid #e5e7eb;
             }
 
-            /* Etiketleri Ekle (data-label attribute'undan gelir) */
             td::before {
                 position: absolute;
                 top: 50%;
@@ -104,30 +101,67 @@
                 content: attr(data-label);
                 text-align: left;
             }
-
-            /* Mobilde butonları düzenle */
-            .mobile-btn-stack { flex-direction: column; width: 100%; }
-            .mobile-btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; }
-            .mobile-full { width: 100%; }
         }
 
-        /* GÜNCELLENMİŞ YAZDIRMA AYARLARI */
+        /* --- DÜZELTİLMİŞ YAZDIRMA AYARLARI --- */
         @media print {
-            @page { margin: 0.5cm; size: portrait; }
+            @page { margin: 1cm; size: auto; }
+            
+            /* Sayfa yapısını sıfırla */
             body * { visibility: hidden; }
-            body, main { overflow: visible !important; height: auto !important; position: static !important; background: white !important; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; background: white; display: block; }
+            
+            /* Ana container ayarları */
+            body, main { 
+                background: white !important; 
+                overflow: visible !important; 
+                height: auto !important; 
+                position: static !important; 
+                display: block !important;
+            }
+
+            #print-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                margin: 0; 
+                padding: 0; 
+                background: white; 
+                display: block !important;
+            }
+
             .no-print { display: none !important; }
             .print-layout { display: block !important; width: 100%; }
-            /* Yazdırmada tabloyu eski haline getir */
-            table, thead, tbody, th, td, tr { display: table-row; }
-            thead { display: table-header-group; }
-            td { padding: 0.5rem !important; text-align: left; display: table-cell; }
-            td::before { content: none; }
-            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+
+            /* Tablo yapısını düzelt (Yatay Görünüm İçin Kritik) */
+            table { display: table !important; width: 100% !important; border-collapse: collapse !important; }
+            thead { display: table-header-group !important; }
+            tbody { display: table-row-group !important; }
+            tr { display: table-row !important; page-break-inside: avoid; }
+            th, td { 
+                display: table-cell !important; 
+                padding: 4px 8px !important; 
+                text-align: left !important; 
+                border: 1px solid #ddd !important;
+            }
+            
+            /* Mobildeki etiketleri kaldır */
+            td::before { content: none !important; }
+            
+            /* Renkleri koru */
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact;
         }
     </style>
+    <script>
+        // Global AppState Başlatma (Hataları önlemek için en başta tanımlıyoruz)
+        window.appState = {
+            exams: [],
+            sortConfig: { key: 'date', direction: 'asc' },
+            selectedExamIds: new Set()
+        };
+    </script>
 </head>
 <body class="text-gray-800 h-screen flex flex-col overflow-hidden">
 
@@ -135,7 +169,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-graduation-cap text-indigo-600 text-2xl"></i>
-                <h1 class="text-xl font-bold text-gray-900 tracking-tight hidden sm:block">Fenomen Deneme Takip - Bilgilendirme</h1>
+                <h1 class="text-xl font-bold text-gray-900 tracking-tight hidden sm:block">Fenomen Deneme Takip</h1>
                 <h1 class="text-lg font-bold text-gray-900 tracking-tight sm:hidden">Fenomen Takip</h1>
             </div>
             <div class="flex items-center gap-2">
@@ -475,72 +509,45 @@
             authDomain: "odevfeno.firebaseapp.com",
             databaseURL: "https://odevfeno-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "odevfeno",
-            // Firebase Storage alanı (projeId.appspot.com formatında olmalı)
             storageBucket: "odevfeno.appspot.com",
             messagingSenderId: "662757516934",
             appId: "1:662757516934:web:0042188832f63deb6fd307",
             measurementId: "G-4Q99NQRB38"
         };
 
-        // Firebase Başlatma
         const app = initializeApp(firebaseConfig);
-        // The Realtime Database URL must be passed explicitly when your database
-        // lives in a non‑default region (e.g. europe‑west1). Without this the
-        // SDK will attempt to connect to the default us‑central1 endpoint and
-        // silently fail to read/write any data. Supplying the URL here ensures
-        // all reads and writes target your actual database instance.
         const db = getDatabase(app, firebaseConfig.databaseURL);
-
-        // Authenticate anonymously. By default Firebase Realtime Database rules
-        // restrict write operations to authenticated users. Enabling anonymous
-        // auth and signing in here allows the app to persist data without
-        // exposing your API key or requiring a user login. Make sure
-        // anonymous sign‑in is enabled in your Firebase console.
         const auth = getAuth(app);
+        
         signInAnonymously(auth).catch((error) => {
             console.error('Anonymous auth failed:', error);
         });
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 console.debug('Signed in anonymously with uid:', user.uid);
-            } else {
-                console.warn('User signed out of anonymous session');
             }
         });
 
-        // Global Değişkenler
-        window.appState = {
-            exams: [],
-            sortConfig: { key: 'date', direction: 'asc' },
-            selectedExamIds: new Set()
-        };
-
-        /**
-         * Firebase Realtime Database anahtarları belirli karakterleri
-         * (örneğin ".", "#", "$", "/", "[", "]") ve kontrol karakterlerini
-         * içeremez. Uygulamanın oturum bilgileri (sessions) her sınıf adını
-         * anahtar olarak kullanıyor. Örneğin "8.Sınıf" ifadesinde nokta (.)
-         * bulunduğu için veritabanına yazarken hata alınır. Bu yardımcı
-         * fonksiyonlar, yazma sırasında anahtarları güvenli hale getirir ve
-         * okuma sırasında orijinal adlarına geri dönüştürür.
-         */
+        // --- GÜNCELLENMİŞ FIREBASE KEY UTILS ---
         const firebaseKeyUtils = {
-            // Belirtilen anahtarı encode ederek nokta ve diğer yasak
-            // karakterleri güvenli hale getirir. encodeURIComponent
-            // yalnızca boşluk, nokta gibi karakterleri %XX formatında
-            // kodlar ve Firebase için güvenlidir.
-            sanitizeKey: (key) => encodeURIComponent(key),
-            // encodeURIComponent ile kodlanmış anahtarı geri çözer.
+            // Firebase anahtarlarında . # $ / [ ] yasaktır.
+            // encodeURIComponent noktayı (.) encode etmez, bu yüzden manuel işlem gereklidir.
+            sanitizeKey: (key) => {
+                if(!key) return key;
+                // Noktayı özel bir string ile değiştir, diğerlerini encode et
+                let safe = key.replace(/\./g, '_DOT_');
+                return encodeURIComponent(safe);
+            },
             desanitizeKey: (key) => {
+                if(!key) return key;
                 try {
-                    return decodeURIComponent(key);
+                    let decoded = decodeURIComponent(key);
+                    // Özel stringi tekrar noktaya çevir
+                    return decoded.replace(/_DOT_/g, '.');
                 } catch (e) {
-                    // decode sırasında hata olursa anahtarı olduğu gibi döndür.
                     return key;
                 }
             },
-            // Tek bir exam nesnesini kopyalar ve sessions anahtarlarını
-            // güvenli hale getirir. Orijinal exam nesnesini değiştirmez.
             sanitizeExam: (exam) => {
                 const copy = JSON.parse(JSON.stringify(exam));
                 if (copy.detailedDates && Array.isArray(copy.detailedDates)) {
@@ -557,10 +564,6 @@
                 }
                 return copy;
             },
-            // Firebase'den okunan exam nesnesinin oturum anahtarlarını orijinal
-            // haline getirir. Dizinin içindeki her detailedDates elemanının
-            // sessions alanı üzerinde çalışır. Orijinal exam nesnesini
-            // değiştirmek yerine kopya döndürür.
             desanitizeExam: (exam) => {
                 const copy = JSON.parse(JSON.stringify(exam));
                 if (copy.detailedDates && Array.isArray(copy.detailedDates)) {
@@ -579,18 +582,9 @@
             }
         };
 
-        // Cloud Manager (Firebase İşlemleri)
-        //
-        // Firebase Realtime Database dizinindeki veriyi okur/yazar.
-        // Kayıtları dizi yerine nesne olarak depoluyoruz; böylece her bir
-        // sınav benzersiz anahtar (id) ile saklanır ve indeksleme sorunu yaşanmaz.
-        //
-        // Kaydet düğmesine basıldığında mevcut veriler tamamen silinir ve
-        // yeniden yazılır. Bu işlem sadece deneme/test alanı altında yapılır,
-        // böylece mevcut diğer Firebase verileri etkilenmez.
         const DATA_PATH = 'denemeTest';
+        
         window.cloudManager = {
-            // Mevcut sınav listesini Firebase veritabanına kaydeder.
             save: () => {
                 const examsArray = window.appState.exams || [];
                 if (!examsArray || examsArray.length === 0) {
@@ -598,15 +592,12 @@
                     return;
                 }
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
-                    // Diziyi nesneye dönüştürürken her sınavı sanitizeExam ile
-                    // kopyalayıp oturum anahtarlarını güvenli hale getiriyoruz.
                     const examsObject = {};
                     examsArray.forEach(exam => {
                         const safeExam = firebaseKeyUtils.sanitizeExam(exam);
                         examsObject[exam.id] = safeExam;
                     });
-                    // update() yalnızca denemeTest düğümünü günceller; diğer
-                    // üst seviye veriler etkilenmez. Hata durumunda uyarı
+                    
                     update(ref(db, '/'), { [DATA_PATH]: examsObject })
                         .then(() => {
                             alert('Liste başarıyla kaydedildi!');
@@ -617,25 +608,30 @@
                         });
                 }
             },
-            // Firebase veritabanından sınav listesini okur. get() yöntemi ile veriye tek sefer erişilir.
             load: async () => {
                 try {
                     const snapshot = await get(ref(db, DATA_PATH));
                     if (snapshot.exists()) {
                         const data = snapshot.val() || {};
-                        // Nesneyi diziye dönüştür ve oturum anahtarlarını
-                        // orijinal haline getir.
                         const examsList = Object.values(data).map(item => firebaseKeyUtils.desanitizeExam(item));
+                        
+                        // Önce state'i güncelle
                         window.appState.exams = examsList;
+                        
+                        // Sonra UI'ı güncelle
                         uiManager.renderTable();
-                        if (window.filterManager) {
+                        
+                        // En son filtreleri güncelle (Eğer manager yüklendiyse)
+                        if (window.filterManager && typeof window.filterManager.rebuildOptions === 'function') {
                             window.filterManager.rebuildOptions();
                         }
+                        
                         alert('Liste Firebase\'den güncellendi.');
                     } else {
                         alert('Kayıtlı veri bulunamadı.');
                     }
                 } catch (error) {
+                    console.error(error);
                     alert('Veri çekme hatası: ' + (error.message || error));
                 }
             }
@@ -643,19 +639,6 @@
     </script>
 
     <script>
-        // Bazı tarayıcılar modül betiklerini (type="module") paralel olarak yükler.
-        // Bu sayede module içerisinde tanımlanan window.appState henüz
-        // oluşturulmadan bu klasik betik çalışabilir. window.appState
-        // tanımlı değilse varsayılan bir obje oluştururuz ki aşağıdaki
-        // fonksiyonlar güvenle çalışabilsin.
-        if (!window.appState) {
-            window.appState = {
-                exams: [],
-                sortConfig: { key: 'date', direction: 'asc' },
-                selectedExamIds: new Set()
-            };
-        }
-
         // --- Date Utils ---
         const dateUtils = {
             monthMap: {
@@ -693,37 +676,17 @@
                 const year = date.getFullYear();
                 return `${day} ${month} ${weekday} ${year}`;
             },
-            /**
-             * Belirtilen tarih dizesini Pazar günü olup olmadığını kontrol eder.
-             *
-             * JavaScript'te 'YYYY-MM-DD' formatındaki bir tarih UTC saat diliminde
-             * parse edilir ve bu durum yerel saat diliminde gün kaymasına sebep
-             * olabilir. Kullanıcının girdiği tarihi yerel saat dilimine göre
-             * değerlendirmek için yıl, ay ve günü ayrıştırıp yeni Date
-             * nesnesi oluşturuyoruz. Böylece getDay() her zaman beklenen
-             * haftanın gününü döndürür.
-             * @param {string} dateStr yyyy-mm-dd formatında tarih
-             * @returns {boolean} Pazar günü ise true
-             */
             isSunday: (dateStr) => {
                 if (!dateStr) return false;
                 const parts = dateStr.split('-');
                 if (parts.length !== 3) return false;
                 const year = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+                const month = parseInt(parts[1], 10) - 1; 
                 const day = parseInt(parts[2], 10);
                 const d = new Date(year, month, day);
-                return d.getDay() === 0; // 0 = Pazar
+                return d.getDay() === 0;
             },
-
-            /**
-             * Verilen tarihin Pazar olup olmadığına göre varsayılan oturum saatlerini döndürür.
-             * Pazar günleri sabah oturumları, diğer günler ise akşam oturumları atanır.
-             * @param {string} dateStr yyyy-mm-dd formatında tarih
-             * @returns {{s1: string, s2: string}} Oturum saatleri
-             */
             getDefaultTimes: (dateStr) => {
-                // Girilen tarih Pazar ise sabah oturumu, aksi halde akşam oturumu atansın
                 if (dateUtils.isSunday(dateStr)) {
                     return { s1: '09:30 - 10:45', s2: '11:00 - 12:20' };
                 }
@@ -754,8 +717,6 @@
                 const stationery = document.getElementById('examStationery').value;
                 const isDone = document.getElementById('examIsDone').checked;
                 
-                // Yeni Veri Yapısı: detailedDates
-                // [{ date: '2025-01-01', sessions: { '5.Sınıf': {s1, s2} } }]
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
                 
@@ -782,7 +743,6 @@
                     });
                 });
 
-                // Uyumluluk için eski dates dizisini de oluştur
                 const dates = detailedDates.map(d => d.date);
 
                 if (!name) { alert('Lütfen deneme kategorisini giriniz.'); return; }
@@ -790,7 +750,7 @@
 
                 const newExam = {
                     id, name, classLevel, count, stationery, dates, isDone,
-                    detailedDates: detailedDates // Yeni yapı
+                    detailedDates: detailedDates
                 };
 
                 const existingIndex = window.appState.exams.findIndex(e => e.id === id);
@@ -836,20 +796,14 @@
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
                 
-                // Class change'i tetikle ki UI güncellensin
                 modalManager.onClassChange(); 
 
-                // Eğer yeni yapı varsa onu kullan, yoksa eskiden dönüştür
                 if (exam.detailedDates && exam.detailedDates.length > 0) {
                     exam.detailedDates.forEach(dd => modalManager.addDateRow(dd.date, dd.sessions));
                 } else if (exam.dates && exam.dates.length > 0) {
-                    // Eski veriyi dönüştürme (geriye dönük uyumluluk)
                     exam.dates.forEach(d => {
-                        // Eski yapıda sessions tek bir obje idi, onu kullanıyoruz
                         modalManager.addDateRow(d, exam.sessions || {});
                     });
-                } else {
-                    // Düzenlemede tarih yoksa boş satır eklemiyoruz, kullanıcı eklesin
                 }
 
                 modalManager.open('examModal');
@@ -871,7 +825,10 @@
         // --- Filtre Manager ---
         const filterManager = {
             rebuildOptions: () => {
-                const exams = window.appState.exams || [];
+                // appState kontrolü
+                if (!window.appState || !window.appState.exams) return;
+
+                const exams = window.appState.exams;
                 const categorySelect = document.getElementById('nameFilter');
                 const classSelect = document.getElementById('classFilter');
                 const stationerySelect = document.getElementById('stationeryFilter');
@@ -967,6 +924,7 @@
             },
             renderTable: () => {
                 const tbody = document.getElementById('tableBody');
+                if(!tbody) return;
                 const search = (document.getElementById('searchInput').value || '').toLowerCase();
                 const statusFilter = document.getElementById('statusFilter').value;
                 const nameFilter = (document.getElementById('nameFilter').value || 'all').toLowerCase();
@@ -1083,7 +1041,6 @@
                 document.getElementById('modalTitle').innerText = 'Yeni Deneme Ekle';
                 document.getElementById('examName').value = '';
                 
-                // GÜNCELLEME: Sınıf seviyesi başlangıçta boş
                 const classInput = document.getElementById('examClass');
                 classInput.value = ''; 
                 
@@ -1093,7 +1050,6 @@
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
                 
-                // GÜNCELLEME: Tarih ekleme butonu durumunu güncelle
                 modalManager.onClassChange();
                 
                 modalManager.open('examModal');
@@ -1106,25 +1062,17 @@
                 if(!classVal || classVal.trim() === '') {
                     section.style.display = 'none';
                     warning.style.display = 'block';
-                    // Sınıf silindiyse tarihleri de temizle (veri tutarlılığı için)
                     document.getElementById('detailedDatesContainer').innerHTML = '';
                 } else {
                     section.style.display = 'block';
                     warning.style.display = 'none';
                     
-                    // Sınıf değiştiğinde mevcut tarih satırlarındaki sınıfları (tikleri) güncelle
                     const blocks = document.querySelectorAll('.date-block');
                     const subClasses = classUtils.splitClasses(classVal);
                     
                     blocks.forEach(block => {
                         const container = block.querySelector('.session-container');
                         if(container) {
-                            // Mevcut değerleri korumaya çalışabiliriz ama yapı değiştiği için
-                            // en temiz yöntem yeni sınıfa göre satırları yeniden oluşturmaktır.
-                            // Tarih değeri zaten block seviyesinde inputta duruyor, kaybolmaz.
-                            
-                            // Ancak kullanıcının girdiği saatleri kaybetmemek için basit bir map yapabiliriz.
-                            // Şimdilik basitçe yeniden render ediyoruz.
                             modalManager.renderSessions(container, subClasses, {});
                         }
                     });
@@ -1133,9 +1081,7 @@
             renderSessions: (container, subClasses, existingValues = {}) => {
                  let html = '';
                  subClasses.forEach(subClass => {
-                    const sessionData = existingValues[subClass] || { s1: '', s2: '' }; // Varsayılan boş
-                    // Eğer yeni oluşturuluyorsa ve tarih varsa addDateRow içinde defaultTimes verilecek.
-                    // Burası sadece class değişiminde tetiklenen re-render için.
+                    const sessionData = existingValues[subClass] || { s1: '', s2: '' };
                     
                     html += `
                         <div class="session-row grid grid-cols-12 gap-2 items-center border-b border-gray-100 last:border-0 pb-2 last:pb-0">
@@ -1167,7 +1113,6 @@
                 div.className = 'date-block bg-white p-3 rounded-lg border border-gray-200 shadow-sm relative';
                 div.id = blockId;
 
-                // Varsayılan saatler (Tarih varsa ona göre, yoksa boş)
                 let defaultTimes = { s1: '', s2: '' };
                 if (dateValue) {
                      defaultTimes = dateUtils.getDefaultTimes(dateValue);
@@ -1185,7 +1130,6 @@
                     <div class="space-y-2 session-container">
                 `;
 
-                // Session satırlarını oluştur
                 subClasses.forEach(subClass => {
                     const sessionData = sessions[subClass] || defaultTimes;
                     const isActive = sessions[subClass] ? 'checked' : (Object.keys(sessions).length === 0 ? 'checked' : '');
@@ -1213,8 +1157,6 @@
                 const times = dateUtils.getDefaultTimes(dateValue);
                 const block = document.getElementById(blockId);
                 
-                // Kullanıcı tarih değiştirdiğinde tüm oturum saatlerini yeni varsayılanlara güncelleyelim.
-                // Daha önce elle bir saat girilmiş olsa bile, tarih değişikliğinde uygun oturum saatleri atanır.
                 const inputs1 = block.querySelectorAll('.session-input-1');
                 const inputs2 = block.querySelectorAll('.session-input-2');
                 inputs1.forEach(input => { input.value = times.s1; });
@@ -1418,6 +1360,7 @@
                 uiManager.renderTable();
             },
             setTodayDate: () => { document.getElementById('printCustomDate').value = dateUtils.toInputDateString(new Date()); },
+            // Yazdırma işlemi yeniden yazıldı - Tam HTML Tablo yapısı
             executePrint: function () {
                 const printOnlySelected = document.getElementById('printOnlySelected').checked;
                 const checkboxes = document.querySelectorAll('#printSettingsModal input[type="checkbox"]:not(#printOnlySelected)');
@@ -1434,16 +1377,35 @@
                 const orientation = document.querySelector('input[name="printOrientation"]:checked').value;
                 const compact = document.getElementById('printCompact')?.checked;
 
+                // Mevcut style elementini temizle veya oluştur
                 let styleEl = document.getElementById('print-orientation-style');
-                if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'print-orientation-style'; document.head.appendChild(styleEl); }
-                styleEl.textContent = `@media print { @page { size: A4 ${orientation}; margin: 15mm; } }`;
+                if (!styleEl) { 
+                    styleEl = document.createElement('style'); 
+                    styleEl.id = 'print-orientation-style'; 
+                    document.head.appendChild(styleEl); 
+                }
+                styleEl.textContent = `@media print { @page { size: A4 ${orientation}; margin: 10mm; } }`;
 
                 const examsToPrint = window.appState.exams.filter(e => idsToPrint.includes(e.id));
                 const container = document.getElementById('printLayout');
-                const cellPadding = compact ? 'py-1 px-1' : 'py-2 px-2';
-
-                let html = `<div class="max-w-5xl mx-auto"><div class="text-center mb-6"><h1 class="text-2xl font-bold mb-1">Fenomen Çocuk Kulübü Deneme Sınavları</h1><p class="text-sm text-gray-700">Deneme Sayısı: ${examsToPrint.length}</p>${showDate ? `<p class="text-xs text-gray-600">Yazdırma Tarihi: ${headerDate}</p>` : ''}</div><table class="w-full border-collapse text-xs"><thead><tr>`;
-                activeColumns.forEach(col => html += `<th class="border-b border-gray-500 text-left ${cellPadding} font-semibold">${col.label}</th>`);
+                
+                // Normal HTML table yapısı oluşturuyoruz ki tarayıcı doğru render etsin
+                let html = `
+                    <div style="font-family: 'Inter', sans-serif;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 5px;">Fenomen Çocuk Kulübü Deneme Sınavları</h1>
+                            <p style="font-size: 14px; color: #555;">Deneme Sayısı: ${examsToPrint.length}</p>
+                            ${showDate ? `<p style="font-size: 12px; color: #666;">Yazdırma Tarihi: ${headerDate}</p>` : ''}
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: ${compact ? '10px' : '12px'};">
+                            <thead>
+                                <tr style="background-color: #f3f4f6;">
+                `;
+                
+                activeColumns.forEach(col => {
+                    html += `<th style="border: 1px solid #ccc; padding: ${compact ? '4px' : '8px'}; text-align: left; font-weight: bold;">${col.label}</th>`;
+                });
+                
                 html += `</tr></thead><tbody>`;
 
                 examsToPrint.forEach(exam => {
@@ -1461,7 +1423,7 @@
                                     const cls = Object.keys(dd.sessions || {})
                                         .map(s => s.replace('.Sınıf','').replace('.Sinif',''))
                                         .join('-');
-                                    return `${dStr} ${cls ? `<span class="text-gray-600 font-semibold">(${cls})</span>` : ''}`;
+                                    return `${dStr} ${cls ? `<span style="color:#555; font-weight:600">(${cls})</span>` : ''}`;
                                 }).join('<br>');
                             } else {
                                 text = (exam.dates || []).sort().map(d => dateUtils.formatDate(d)).join('<br>');
@@ -1475,20 +1437,23 @@
                             if (classes.length > 1 && counts.length > 1) {
                                 text = classes.map((cls, idx) => {
                                     const cnt = counts[idx] || '-';
-                                    return `<div class="whitespace-nowrap"><span class="font-semibold text-gray-600">${cls}:</span> ${cnt}</div>`;
+                                    return `<div style="white-space: nowrap;"><span style="font-weight:600; color:#555">${cls}:</span> ${cnt}</div>`;
                                 }).join('');
                             } else {
                                 text = exam.count;
                             }
                         }
-                        html += `<td class="align-top border-b border-gray-200 ${cellPadding}">${text || ''}</td>`;
+                        html += `<td style="border: 1px solid #ccc; padding: ${compact ? '4px' : '8px'}; vertical-align: top;">${text || ''}</td>`;
                     });
                     html += '</tr>';
                 });
                 html += `</tbody></table></div>`;
+                
                 container.innerHTML = html;
                 modalManager.close('printSettingsModal');
-                setTimeout(() => window.print(), 100);
+                
+                // Print işlemini tetikle
+                setTimeout(() => window.print(), 250);
             }
         };
 
