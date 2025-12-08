@@ -1237,7 +1237,26 @@
                 const selectedIds = Array.from(window.appState.selectedExamIds);
                 if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
 
-                const selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
+                let selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
+
+                // --- TARİHE GÖRE SIRALAMA (YAKINDAN UZAĞA) ---
+                selectedExams.sort((a, b) => {
+                    const getFirstDate = (exam) => {
+                        let dates = [];
+                        if (exam.detailedDates && exam.detailedDates.length > 0) {
+                            dates = exam.detailedDates.map(d => d.date);
+                        } else if (exam.dates && exam.dates.length > 0) {
+                            dates = exam.dates;
+                        }
+                        // Tarih yoksa listenin sonuna at
+                        if (dates.length === 0) return 9999999999999;
+                        // En erken tarihi al
+                        return new Date(dates.sort()[0]).getTime();
+                    };
+                    return getFirstDate(a) - getFirstDate(b);
+                });
+                // ----------------------------------------------
+
                 const nowLocal = dateUtils.toInputDateString(new Date());
                 const nowFormatted = dateUtils.formatDate(nowLocal);
                 const supplierName = selectedExams[0].stationery || 'Tedarikçi Girilmedi';
@@ -1490,3 +1509,4 @@
     </script>
 </body>
 </html>
+
