@@ -493,25 +493,52 @@
         };
 
         // Cloud Manager (Firebase İşlemleri)
+        //
+        // Firebase Realtime Database dizinindeki veriyi okur/yazar.
+        // Kayıtları dizi yerine nesne olarak depoluyoruz; böylece her bir
+        // sınav benzersiz anahtar (id) ile saklanır ve indeksleme sorunu yaşanmaz.
+        //
+        // Kaydet düğmesine basıldığında mevcut veriler tamamen silinir ve
+        // yeniden yazılır. Bu işlem sadece deneme/test alanı altında yapılır,
+        // böylece mevcut diğer Firebase verileri etkilenmez.
+        const DATA_PATH = 'denemeTest';
         window.cloudManager = {
             // Mevcut sınav listesini Firebase veritabanına kaydeder.
             save: () => {
-                if (!window.appState.exams) { alert('Kaydedilecek veri yok.'); return; }
+                const examsArray = window.appState.exams || [];
+                if (examsArray.length === 0) {
+                    alert('Kaydedilecek veri yok.');
+                    return;
+                }
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
-                    const examsToSave = JSON.parse(JSON.stringify(window.appState.exams));
-                    set(ref(db, 'denemetest'), examsToSave)
-                        .then(() => alert('Liste başarıyla kaydedildi!'))
-                        .catch((error) => alert('Kaydetme hatası: ' + error.message));
+                    // Diziyi nesne haline dönüştürün. Her kayıt kendi id'si ile saklanır.
+                    const examsObject = {};
+                    examsArray.forEach(exam => {
+                        // Derin kopya alarak reaktif bağlamdaki referansların bozulmasını engelleyin
+                        examsObject[exam.id] = JSON.parse(JSON.stringify(exam));
+                    });
+                    set(ref(db, DATA_PATH), examsObject)
+                        .then(() => {
+                            alert('Liste başarıyla kaydedildi!');
+                        })
+                        .catch((error) => {
+                            alert('Kaydetme hatası: ' + error.message);
+                        });
                 }
             },
             // Firebase veritabanından sınav listesini okur. get() yöntemi ile veriye tek sefer erişilir.
             load: async () => {
                 try {
-                    const snapshot = await get(ref(db, 'denemetest'));
+                    const snapshot = await get(ref(db, DATA_PATH));
                     if (snapshot.exists()) {
-                        window.appState.exams = snapshot.val() || [];
+                        const data = snapshot.val() || {};
+                        // Nesneyi diziye dönüştür. Sıralama korunmaz; UI
+                        // tarafından yeniden sıralanabilir.
+                        window.appState.exams = Object.values(data);
                         uiManager.renderTable();
-                        if (window.filterManager) window.filterManager.rebuildOptions();
+                        if (window.filterManager) {
+                            window.filterManager.rebuildOptions();
+                        }
                         alert('Liste Firebase\'den güncellendi.');
                     } else {
                         alert('Kayıtlı veri bulunamadı.');
