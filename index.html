@@ -515,6 +515,70 @@
             selectedExamIds: new Set()
         };
 
+        /**
+         * Firebase Realtime Database anahtarları belirli karakterleri
+         * (örneğin ".", "#", "$", "/", "[", "]") ve kontrol karakterlerini
+         * içeremez. Uygulamanın oturum bilgileri (sessions) her sınıf adını
+         * anahtar olarak kullanıyor. Örneğin "8.Sınıf" ifadesinde nokta (.)
+         * bulunduğu için veritabanına yazarken hata alınır. Bu yardımcı
+         * fonksiyonlar, yazma sırasında anahtarları güvenli hale getirir ve
+         * okuma sırasında orijinal adlarına geri dönüştürür.
+         */
+        const firebaseKeyUtils = {
+            // Belirtilen anahtarı encode ederek nokta ve diğer yasak
+            // karakterleri güvenli hale getirir. encodeURIComponent
+            // yalnızca boşluk, nokta gibi karakterleri %XX formatında
+            // kodlar ve Firebase için güvenlidir.
+            sanitizeKey: (key) => encodeURIComponent(key),
+            // encodeURIComponent ile kodlanmış anahtarı geri çözer.
+            desanitizeKey: (key) => {
+                try {
+                    return decodeURIComponent(key);
+                } catch (e) {
+                    // decode sırasında hata olursa anahtarı olduğu gibi döndür.
+                    return key;
+                }
+            },
+            // Tek bir exam nesnesini kopyalar ve sessions anahtarlarını
+            // güvenli hale getirir. Orijinal exam nesnesini değiştirmez.
+            sanitizeExam: (exam) => {
+                const copy = JSON.parse(JSON.stringify(exam));
+                if (copy.detailedDates && Array.isArray(copy.detailedDates)) {
+                    copy.detailedDates = copy.detailedDates.map(dd => {
+                        const newSessions = {};
+                        if (dd.sessions && typeof dd.sessions === 'object') {
+                            Object.keys(dd.sessions).forEach(cls => {
+                                const safeKey = firebaseKeyUtils.sanitizeKey(cls);
+                                newSessions[safeKey] = dd.sessions[cls];
+                            });
+                        }
+                        return { ...dd, sessions: newSessions };
+                    });
+                }
+                return copy;
+            },
+            // Firebase'den okunan exam nesnesinin oturum anahtarlarını orijinal
+            // haline getirir. Dizinin içindeki her detailedDates elemanının
+            // sessions alanı üzerinde çalışır. Orijinal exam nesnesini
+            // değiştirmek yerine kopya döndürür.
+            desanitizeExam: (exam) => {
+                const copy = JSON.parse(JSON.stringify(exam));
+                if (copy.detailedDates && Array.isArray(copy.detailedDates)) {
+                    copy.detailedDates = copy.detailedDates.map(dd => {
+                        const newSessions = {};
+                        if (dd.sessions && typeof dd.sessions === 'object') {
+                            Object.keys(dd.sessions).forEach(key => {
+                                const originalKey = firebaseKeyUtils.desanitizeKey(key);
+                                newSessions[originalKey] = dd.sessions[key];
+                            });
+                        }
+                        return { ...dd, sessions: newSessions };
+                    });
+                }
+                return copy;
+            }
+        };
+
         // Cloud Manager (Firebase İşlemleri)
         //
         // Firebase Realtime Database dizinindeki veriyi okur/yazar.
@@ -529,29 +593,27 @@
             // Mevcut sınav listesini Firebase veritabanına kaydeder.
             save: () => {
                 const examsArray = window.appState.exams || [];
-                if (examsArray.length === 0) {
+                if (!examsArray || examsArray.length === 0) {
                     alert('Kaydedilecek veri yok.');
                     return;
                 }
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
-                    // Convert the array into an object keyed by the exam ID.  We take a deep
-                    // copy of each exam to avoid accidentally persisting reactive
-                    // references from the UI state into the database.
+                    // Diziyi nesneye dönüştürürken her sınavı sanitizeExam ile
+                    // kopyalayıp oturum anahtarlarını güvenli hale getiriyoruz.
                     const examsObject = {};
                     examsArray.forEach(exam => {
-                        examsObject[exam.id] = JSON.parse(JSON.stringify(exam));
+                        const safeExam = firebaseKeyUtils.sanitizeExam(exam);
+                        examsObject[exam.id] = safeExam;
                     });
-                    // Use update() instead of set(). Using update will create or replace
-                    // only the denemeTest node and leaves any other top‑level data
-                    // (availability, program etc.) untouched. This prevents accidental
-                    // deletion of unrelated data owned by other parts of your project.
+                    // update() yalnızca denemeTest düğümünü günceller; diğer
+                    // üst seviye veriler etkilenmez. Hata durumunda uyarı
                     update(ref(db, '/'), { [DATA_PATH]: examsObject })
                         .then(() => {
                             alert('Liste başarıyla kaydedildi!');
                         })
                         .catch((error) => {
                             console.error('Kaydetme hatası:', error);
-                            alert('Kaydetme hatası: ' + error.message);
+                            alert('Kaydetme hatası: ' + (error.message || error));
                         });
                 }
             },
@@ -561,9 +623,10 @@
                     const snapshot = await get(ref(db, DATA_PATH));
                     if (snapshot.exists()) {
                         const data = snapshot.val() || {};
-                        // Nesneyi diziye dönüştür. Sıralama korunmaz; UI
-                        // tarafından yeniden sıralanabilir.
-                        window.appState.exams = Object.values(data);
+                        // Nesneyi diziye dönüştür ve oturum anahtarlarını
+                        // orijinal haline getir.
+                        const examsList = Object.values(data).map(item => firebaseKeyUtils.desanitizeExam(item));
+                        window.appState.exams = examsList;
                         uiManager.renderTable();
                         if (window.filterManager) {
                             window.filterManager.rebuildOptions();
@@ -580,6 +643,19 @@
     </script>
 
     <script>
+        // Bazı tarayıcılar modül betiklerini (type="module") paralel olarak yükler.
+        // Bu sayede module içerisinde tanımlanan window.appState henüz
+        // oluşturulmadan bu klasik betik çalışabilir. window.appState
+        // tanımlı değilse varsayılan bir obje oluştururuz ki aşağıdaki
+        // fonksiyonlar güvenle çalışabilsin.
+        if (!window.appState) {
+            window.appState = {
+                exams: [],
+                sortConfig: { key: 'date', direction: 'asc' },
+                selectedExamIds: new Set()
+            };
+        }
+
         // --- Date Utils ---
         const dateUtils = {
             monthMap: {
