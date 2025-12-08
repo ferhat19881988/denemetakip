@@ -153,6 +153,46 @@
             -webkit-print-color-adjust: exact; 
             print-color-adjust: exact;
         }
+
+        /*
+         * Mobil ekranda WhatsApp modalı butonlarının sığması ve sayfanın
+         * tamamının kaydırılabilmesi için ek düzenlemeler. Bu kurallar
+         * yalnızca 640px ve daha dar ekranlarda geçerlidir.
+         */
+        @media (max-width: 640px) {
+            /* WA modal altındaki butonları dikey sırala ve tam genişlik yap */
+            #waModalFooter {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            #waModalFooter > button,
+            #waModalFooter > div > button {
+                width: 100%;
+            }
+            #waModalFooter > div {
+                flex-direction: column;
+                width: 100%;
+                gap: 0.5rem;
+            }
+
+            /* Genel sayfa scroll: body ve main boyutlarını serbest bırak */
+            body {
+                height: auto;
+                overflow-y: auto;
+            }
+            main {
+                flex: none;
+                overflow: visible;
+            }
+            /* İçerik alanındaki scroll'u kaldırarak listeyi sayfa ile birlikte kaydır */
+            #print-area {
+                overflow: visible;
+            }
+            /* Filtre alanındaki scroll'u da kaldır */
+            .overflow-y-auto {
+                overflow: visible !important;
+            }
+        }
     </style>
     <script>
         // Global AppState Başlatma (Hataları önlemek için en başta tanımlıyoruz)
@@ -393,7 +433,12 @@
                 <textarea id="waMessageArea" class="w-full h-48 rounded-lg border-gray-300 border focus:border-green-500 focus:ring-green-500 p-3 text-sm font-mono bg-green-50" spellcheck="false"></textarea>
                 <p class="text-xs text-gray-500 mt-2"><i class="fa-solid fa-circle-info"></i> Yıldız (*) metni kalınlaştırır.</p>
             </div>
-            <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-between items-center gap-2">
+    <!--
+      Mobilde WhatsApp modalının alt kısmındaki butonlar yan yana sığmadığı için bu
+      container'a bir ID ekledik. Böylece CSS'de sadece bu alanı hedef alarak
+      küçük ekranlarda butonların dikey hizalanmasını sağlayabiliriz.
+    -->
+    <div id="waModalFooter" class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-between items-center gap-2">
                  <button onclick="whatsappManager.copyToClipboard()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium btn-hover flex items-center gap-2">
                     <i class="fa-solid fa-copy"></i> Kopyala
                 </button>
