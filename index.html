@@ -1386,7 +1386,26 @@
                 }
                 styleEl.textContent = `@media print { @page { size: A4 ${orientation}; margin: 10mm; } }`;
 
-                const examsToPrint = window.appState.exams.filter(e => idsToPrint.includes(e.id));
+                let examsToPrint = window.appState.exams.filter(e => idsToPrint.includes(e.id));
+                
+                // --- TARİHE GÖRE SIRALAMA (EKLENEN KISIM) ---
+                examsToPrint.sort((a, b) => {
+                    const getFirstDate = (exam) => {
+                        let dates = [];
+                        if (exam.detailedDates && exam.detailedDates.length > 0) {
+                            dates = exam.detailedDates.map(d => d.date);
+                        } else if (exam.dates && exam.dates.length > 0) {
+                            dates = exam.dates;
+                        }
+                        // Tarih yoksa en sona at (büyük sayı)
+                        if (dates.length === 0) return 9999999999999;
+                        // En erken tarihi al
+                        return new Date(dates.sort()[0]).getTime();
+                    };
+                    return getFirstDate(a) - getFirstDate(b);
+                });
+                // ---------------------------------------------
+
                 const container = document.getElementById('printLayout');
                 
                 // Normal HTML table yapısı oluşturuyoruz ki tarayıcı doğru render etsin
