@@ -296,10 +296,10 @@
                                     Teslim
                                 </th>
                                 <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                     Veliye Mesaj
-                                 </th>
-                                 <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     Adet
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Veliye Mesaj
                                 </th>
                                 <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider no-print">
                                     İşlemler
@@ -381,10 +381,6 @@
                 <div class="flex items-center mt-2">
                     <input type="checkbox" id="examIsDelivered" class="h-4 w-4 text-indigo-700 focus:ring-indigo-500 border-gray-300 rounded">
                     <label for="examIsDelivered" class="ml-2 block text-sm text-gray-900">Kırtasiye denemeleri teslim etti</label>
-                </div>
-                <div class="flex items-center mt-2">
-                    <input type="checkbox" id="examIsParentMessaged" class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
-                    <label for="examIsParentMessaged" class="ml-2 block text-sm text-gray-900">Veliye mesaj atıldı</label>
                 </div>
             </div>
             <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
@@ -604,7 +600,7 @@
             const e = JSON.parse(JSON.stringify(exam || {}));
             if (typeof e.isDone !== 'boolean') e.isDone = !!e.isDone;
             if (typeof e.isDelivered !== 'boolean') e.isDelivered = false; // NEW: stationery delivery status
-            if (typeof e.isParentMessaged !== 'boolean') e.isParentMessaged = false; // NEW: parent WhatsApp message status
+            if (typeof e.parentMsgSent !== 'boolean') e.parentMsgSent = false; // NEW: parent WhatsApp message sent status
             if (!Array.isArray(e.dates)) e.dates = e.dates ? [e.dates] : [];
             if (!Array.isArray(e.detailedDates)) e.detailedDates = [];
             if (typeof e.name !== 'string') e.name = (e.name ?? '').toString();
@@ -748,7 +744,6 @@ window.cloudManager = {
                 const stationery = document.getElementById('examStationery').value;
                 const isDone = document.getElementById('examIsDone').checked;
                 const isDelivered = document.getElementById('examIsDelivered').checked;
-                const isParentMessaged = document.getElementById('examIsParentMessaged') ? document.getElementById('examIsParentMessaged').checked : false;
                 
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
@@ -782,7 +777,7 @@ window.cloudManager = {
                 if (!classLevel) { alert('Lütfen sınıf seviyesini giriniz.'); return; }
 
                 const newExam = {
-                    id, name, classLevel, count, stationery, dates, isDone, isDelivered, isParentMessaged,
+                    id, name, classLevel, count, stationery, dates, isDone, isDelivered,
                     detailedDates: detailedDates
                 };
 
@@ -826,7 +821,6 @@ window.cloudManager = {
                 document.getElementById('examStationery').value = exam.stationery;
                 document.getElementById('examIsDone').checked = !!exam.isDone;
                 document.getElementById('examIsDelivered').checked = !!exam.isDelivered;
-                if (document.getElementById('examIsParentMessaged')) document.getElementById('examIsParentMessaged').checked = !!exam.isParentMessaged;
 
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
@@ -855,6 +849,13 @@ window.cloudManager = {
                 exam.isDelivered = !exam.isDelivered;
                 uiManager.renderTable();
             },
+            toggleParentMsg: (id) => {
+                const exam = window.appState.exams.find(e => e.id === id);
+                if (!exam) return;
+                exam.parentMsgSent = !exam.parentMsgSent;
+                uiManager.renderTable();
+            },
+
             updateField: (id, field, value) => {
                 const exam = window.appState.exams.find(e => e.id === id);
                 if (!exam) return;
@@ -1063,14 +1064,16 @@ window.cloudManager = {
                                 ${exam.isDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi'}
                             </button>
                         </td>
-                        <td class="px-4 py-4 text-center" data-label="Veliye Mesaj">
-                            <button type="button" tabindex="-1" onclick="dataManager.toggleParentMessaged('${exam.id}')" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.isParentMessaged ? 'bg-orange-600 text-white border border-orange-700' : 'bg-slate-100 text-slate-700 border border-slate-300'}">
-                                <i class="fa-solid ${exam.isParentMessaged ? 'fa-comment-dots' : 'fa-comment-slash'} mr-1"></i>
-                                ${exam.isParentMessaged ? 'Atıldı' : 'Atılmadı'}
-                            </button>
-                        </td>
                         <td class="px-4 py-4 text-center text-gray-500" data-label="Adet">
                             <input type="text" value="${exam.count || ''}" class="table-input w-20 text-center rounded-md px-2 py-1 text-sm" placeholder="Adet" onchange="dataManager.updateField('${exam.id}', 'count', this.value)">
+                        </td>
+                        <td class="px-4 py-4 text-center" data-label="Veliye Mesaj">
+                            <button type="button" tabindex="-1"
+                                onclick="dataManager.toggleParentMsg('${exam.id}')"
+                                class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.parentMsgSent ? 'bg-orange-500 text-white border border-orange-600' : 'bg-slate-100 text-slate-700 border border-slate-300'}">
+                                <i class="fa-solid ${exam.parentMsgSent ? 'fa-comment-dots' : 'fa-comment-slash'} mr-1"></i>
+                                ${exam.parentMsgSent ? 'Atıldı' : 'Atılmadı'}
+                            </button>
                         </td>
                         <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium no-print" data-label="İşlemler">
                             <div class="flex items-center justify-end w-full gap-3">
@@ -1269,7 +1272,7 @@ window.cloudManager = {
 
                     return {
                         id: Date.now() + Math.random().toString(16).slice(2),
-                        name, classLevel, count: '', stationery: '', isDone: false, isDelivered: false, isParentMessaged: false,
+                        name, classLevel, count: '', stationery: '', isDone: false, isDelivered: false,
                         dates: parsedDate ? [parsedDate] : [],
                         detailedDates: detailedDates
                     };
@@ -1287,8 +1290,11 @@ window.cloudManager = {
         // --- WhatsApp Manager ---
         const whatsappManager = {
             currentMessage: '',
+            currentContext: { type: '', ids: [] },
             openStationeryModal: () => {
                 const selectedIds = Array.from(window.appState.selectedExamIds);
+
+                whatsappManager.currentContext = { type: 'stationery', ids: selectedIds };
                 if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
 
                 let selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
@@ -1346,6 +1352,8 @@ window.cloudManager = {
             },
             openParentModal: () => {
                 const selectedIds = Array.from(window.appState.selectedExamIds);
+
+                whatsappManager.currentContext = { type: 'parent', ids: selectedIds };
                 if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
                 const selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
                 
@@ -1402,6 +1410,17 @@ window.cloudManager = {
                 const text = document.getElementById('waMessageArea').value;
                 const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
                 window.open(url, '_blank');
+
+                // Eğer Veli mesajı ise seçili satırlarda 'Atıldı' olarak işaretle
+                if (whatsappManager.currentContext && whatsappManager.currentContext.type === 'parent') {
+                    const ids = whatsappManager.currentContext.ids || [];
+                    ids.forEach(id => {
+                        const exam = window.appState.exams.find(e => e.id === id);
+                        if (exam) exam.parentMsgSent = true;
+                    });
+                    uiManager.renderTable();
+                }
+
                 modalManager.close('waModal');
             },
             copyToClipboard: () => {
