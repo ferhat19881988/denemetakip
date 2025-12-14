@@ -293,10 +293,6 @@
                                     Kırtasiye
                                 </th>
                                 <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                    Teslim
-                                </th>
-
-                                <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     Adet
                                 </th>
                                 <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider no-print">
@@ -372,17 +368,10 @@
                     * Tarih eklemek için lütfen önce Sınıf Seviyesi giriniz.
                 </div>
 
-                
-                <div class="flex items-center mt-2">
-                    <input type="checkbox" id="examStationeryDelivered" class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
-                    <label for="examStationeryDelivered" class="ml-2 block text-sm text-gray-900">Kırtasiye denemeleri teslim etti</label>
-                </div>
-
                 <div class="flex items-center mt-2">
                     <input type="checkbox" id="examIsDone" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                     <label for="examIsDone" class="ml-2 block text-sm text-gray-900">Bu deneme uygulandı (tamamlandı)</label>
                 </div>
-
             </div>
             <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
                 <button onclick="modalManager.close('examModal')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium btn-hover">İptal</button>
@@ -624,11 +613,7 @@
                     const snapshot = await get(ref(db, DATA_PATH));
                     if (snapshot.exists()) {
                         const data = snapshot.val() || {};
-                        const examsList = Object.values(data).map(item => {
-                        const ex = firebaseKeyUtils.desanitizeExam(item);
-                        ex.stationeryDelivered = !!ex.stationeryDelivered;
-                        return ex;
-                    });
+                        const examsList = Object.values(data).map(item => firebaseKeyUtils.desanitizeExam(item));
                         
                         // Önce state'i güncelle
                         window.appState.exams = examsList;
@@ -724,20 +709,13 @@
 
         // --- Data Manager ---
         const dataManager = {
-            normalizeExam: (exam) => {
-                // Geriye dönük uyumluluk: eski kayıtlarda teslim alanı yoksa false kabul et
-                const copy = { ...(exam || {}) };
-                copy.stationeryDelivered = !!copy.stationeryDelivered;
-                return copy;
-            },
             saveExam: () => {
                 const id = document.getElementById('examId').value || Date.now().toString();
                 const name = document.getElementById('examName').value;
                 const classLevel = document.getElementById('examClass').value;
                 const count = document.getElementById('examCount').value;
                 const stationery = document.getElementById('examStationery').value;
-                const isDone = document\.getElementById\(\'examIsDone\'\)\.checked;
-                const stationeryDelivered = document.getElementById('examStationeryDelivered').checked;
+                const isDone = document.getElementById('examIsDone').checked;
                 
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
@@ -771,7 +749,7 @@
                 if (!classLevel) { alert('Lütfen sınıf seviyesini giriniz.'); return; }
 
                 const newExam = {
-                    id, name, classLevel, count, stationery, dates, isDone, stationeryDelivered,
+                    id, name, classLevel, count, stationery, dates, isDone,
                     detailedDates: detailedDates
                 };
 
@@ -813,8 +791,7 @@
                 document.getElementById('examClass').value = exam.classLevel;
                 document.getElementById('examCount').value = exam.count;
                 document.getElementById('examStationery').value = exam.stationery;
-                document\.getElementById\('examIsDone'\)\.checked = exam\.isDone;
-                document.getElementById('examStationeryDelivered').checked = !!exam.stationeryDelivered;
+                document.getElementById('examIsDone').checked = exam.isDone;
 
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
@@ -837,13 +814,6 @@
                 exam.isDone = !exam.isDone;
                 uiManager.renderTable();
             },
-            toggleDelivery: (id) => {
-                const exam = window.appState.exams.find(e => e.id === id);
-                if (!exam) return;
-                exam.stationeryDelivered = !exam.stationeryDelivered;
-                uiManager.renderTable();
-            },
-
             updateField: (id, field, value) => {
                 const exam = window.appState.exams.find(e => e.id === id);
                 if (!exam) return;
@@ -1046,13 +1016,6 @@
                         <td class="px-4 py-4 text-gray-500" data-label="Kırtasiye">
                             <input type="text" value="${exam.stationery || ''}" class="table-input w-full sm:w-auto rounded-md px-2 py-1 text-sm" placeholder="Kırtasiye..." onchange="dataManager.updateField('${exam.id}', 'stationery', this.value)">
                         </td>
-                        <td class="px-4 py-4 text-center whitespace-nowrap" data-label="Teslim">
-                            <button type="button" tabindex="-1" onclick="dataManager.toggleDelivery('${exam.id}')" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.stationeryDelivered ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'}">
-                                <i class="fa-solid ${exam.stationeryDelivered ? 'fa-truck-fast' : 'fa-truck'} mr-1"></i>
-                                ${exam.stationeryDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi'}
-                            </button>
-                        </td>
-
                         <td class="px-4 py-4 text-center text-gray-500" data-label="Adet">
                             <input type="text" value="${exam.count || ''}" class="table-input w-20 text-center rounded-md px-2 py-1 text-sm" placeholder="Adet" onchange="dataManager.updateField('${exam.id}', 'count', this.value)">
                         </td>
@@ -1083,8 +1046,7 @@
                 
                 document.getElementById('examCount').value = '';
                 document.getElementById('examStationery').value = '';
-                document\.getElementById\('examIsDone'\)\.checked = false;
-                document.getElementById('examStationeryDelivered').checked = false;
+                document.getElementById('examIsDone').checked = false;
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
                 
@@ -1253,7 +1215,7 @@
 
                     return {
                         id: Date.now() + Math.random().toString(16).slice(2),
-                        name, classLevel, count: '', stationery: '', isDone: false, stationeryDelivered: false,
+                        name, classLevel, count: '', stationery: '', isDone: false,
                         dates: parsedDate ? [parsedDate] : [],
                         detailedDates: detailedDates
                     };
@@ -1308,7 +1270,6 @@
                     message += `📌 *Sınıf/Deneme:* ${exam.classLevel} - *${exam.name}*\n`;
                     message += `📅 *Uygulama Tarihi:* ${dateStr}\n`;
                     message += `🏢 *Kırtasiye:* *${stat}*\n`;
-                    message += `🚚 *Teslim Durumu:* *${exam.stationeryDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi'}*\n`;
                     
                     const classes = classUtils.splitClasses(exam.classLevel);
                     const counts = (exam.count || '').toString().split('/').map(c => c.trim());
@@ -1338,7 +1299,6 @@
 
                 selectedExams.forEach(exam => {
                     message += `📘 *${exam.name}* (${exam.classLevel})\n`;
-                    message += `🚚 *Deneme Teslim Durumu:* ${exam.stationeryDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi'}\n`;
                     
                     const uniqueDates = exam.detailedDates ? [...new Set(exam.detailedDates.map(d => d.date))] : (exam.dates || []);
                     
