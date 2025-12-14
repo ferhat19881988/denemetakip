@@ -1308,8 +1308,6 @@ window.cloudManager = {
                     message += `📌 *Sınıf/Deneme:* ${exam.classLevel} - *${exam.name}*\n`;
                     message += `📅 *Uygulama Tarihi:* ${dateStr}\n`;
                     message += `🏢 *Kırtasiye:* *${stat}*\n`;
-                    const deliveryText = exam.isDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi';
-                    message += `🚚 *Teslim Durumu:* *${deliveryText}*\n`;
                     
                     const classes = classUtils.splitClasses(exam.classLevel);
                     const counts = (exam.count || '').toString().split('/').map(c => c.trim());
@@ -1549,4 +1547,5 @@ window.cloudManager = {
     </script>
 </body>
 </html>
+
 
