@@ -293,6 +293,9 @@
                                     Kırtasiye
                                 </th>
                                 <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Teslim
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     Adet
                                 </th>
                                 <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider no-print">
@@ -371,6 +374,10 @@
                 <div class="flex items-center mt-2">
                     <input type="checkbox" id="examIsDone" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                     <label for="examIsDone" class="ml-2 block text-sm text-gray-900">Bu deneme uygulandı (tamamlandı)</label>
+                </div>
+                <div class="flex items-center mt-2">
+                    <input type="checkbox" id="examIsDelivered" class="h-4 w-4 text-indigo-700 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="examIsDelivered" class="ml-2 block text-sm text-gray-900">Kırtasiye denemeleri teslim etti</label>
                 </div>
             </div>
             <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
@@ -584,7 +591,23 @@
 
         const DATA_PATH = 'denemeTest';
         
-        window.cloudManager = {
+        
+        // --- Exam Normalization (Backward compatible defaults) ---
+        const normalizeExam = (exam) => {
+            const e = JSON.parse(JSON.stringify(exam || {}));
+            if (typeof e.isDone !== 'boolean') e.isDone = !!e.isDone;
+            if (typeof e.isDelivered !== 'boolean') e.isDelivered = false; // NEW: stationery delivery status
+            if (!Array.isArray(e.dates)) e.dates = e.dates ? [e.dates] : [];
+            if (!Array.isArray(e.detailedDates)) e.detailedDates = [];
+            if (typeof e.name !== 'string') e.name = (e.name ?? '').toString();
+            if (typeof e.classLevel !== 'string') e.classLevel = (e.classLevel ?? '').toString();
+            if (typeof e.stationery !== 'string') e.stationery = (e.stationery ?? '').toString();
+            if (e.count === undefined || e.count === null) e.count = '';
+            else e.count = e.count.toString();
+            if (!e.id) e.id = Date.now().toString() + Math.random().toString(16).slice(2);
+            return e;
+        };
+window.cloudManager = {
             save: () => {
                 const examsArray = window.appState.exams || [];
                 if (!examsArray || examsArray.length === 0) {
@@ -594,7 +617,7 @@
                 if (confirm('Mevcut liste kaydedilecek ve eski kayıtların üzerine yazılacaktır. Onaylıyor musunuz?')) {
                     const examsObject = {};
                     examsArray.forEach(exam => {
-                        const safeExam = firebaseKeyUtils.sanitizeExam(exam);
+                        const safeExam = firebaseKeyUtils.sanitizeExam(normalizeExam(exam));
                         examsObject[exam.id] = safeExam;
                     });
                     
@@ -613,7 +636,7 @@
                     const snapshot = await get(ref(db, DATA_PATH));
                     if (snapshot.exists()) {
                         const data = snapshot.val() || {};
-                        const examsList = Object.values(data).map(item => firebaseKeyUtils.desanitizeExam(item));
+                        const examsList = Object.values(data).map(item => normalizeExam(firebaseKeyUtils.desanitizeExam(item)));
                         
                         // Önce state'i güncelle
                         window.appState.exams = examsList;
@@ -716,6 +739,7 @@
                 const count = document.getElementById('examCount').value;
                 const stationery = document.getElementById('examStationery').value;
                 const isDone = document.getElementById('examIsDone').checked;
+                const isDelivered = document.getElementById('examIsDelivered').checked;
                 
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
@@ -749,7 +773,7 @@
                 if (!classLevel) { alert('Lütfen sınıf seviyesini giriniz.'); return; }
 
                 const newExam = {
-                    id, name, classLevel, count, stationery, dates, isDone,
+                    id, name, classLevel, count, stationery, dates, isDone, isDelivered,
                     detailedDates: detailedDates
                 };
 
@@ -791,7 +815,8 @@
                 document.getElementById('examClass').value = exam.classLevel;
                 document.getElementById('examCount').value = exam.count;
                 document.getElementById('examStationery').value = exam.stationery;
-                document.getElementById('examIsDone').checked = exam.isDone;
+                document.getElementById('examIsDone').checked = !!exam.isDone;
+                document.getElementById('examIsDelivered').checked = !!exam.isDelivered;
 
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
@@ -812,6 +837,12 @@
                 const exam = window.appState.exams.find(e => e.id === id);
                 if (!exam) return;
                 exam.isDone = !exam.isDone;
+                uiManager.renderTable();
+            },
+            toggleDelivery: (id) => {
+                const exam = window.appState.exams.find(e => e.id === id);
+                if (!exam) return;
+                exam.isDelivered = !exam.isDelivered;
                 uiManager.renderTable();
             },
             updateField: (id, field, value) => {
@@ -1016,6 +1047,12 @@
                         <td class="px-4 py-4 text-gray-500" data-label="Kırtasiye">
                             <input type="text" value="${exam.stationery || ''}" class="table-input w-full sm:w-auto rounded-md px-2 py-1 text-sm" placeholder="Kırtasiye..." onchange="dataManager.updateField('${exam.id}', 'stationery', this.value)">
                         </td>
+                        <td class="px-4 py-4 text-center" data-label="Teslim">
+                            <button type="button" tabindex="-1" onclick="dataManager.toggleDelivery('${exam.id}')" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.isDelivered ? 'bg-indigo-700 text-white border border-indigo-800' : 'bg-slate-100 text-slate-700 border border-slate-300'}">
+                                <i class="fa-solid ${exam.isDelivered ? 'fa-box' : 'fa-truck-ramp-box'} mr-1"></i>
+                                ${exam.isDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi'}
+                            </button>
+                        </td>
                         <td class="px-4 py-4 text-center text-gray-500" data-label="Adet">
                             <input type="text" value="${exam.count || ''}" class="table-input w-20 text-center rounded-md px-2 py-1 text-sm" placeholder="Adet" onchange="dataManager.updateField('${exam.id}', 'count', this.value)">
                         </td>
@@ -1047,6 +1084,7 @@
                 document.getElementById('examCount').value = '';
                 document.getElementById('examStationery').value = '';
                 document.getElementById('examIsDone').checked = false;
+                document.getElementById('examIsDelivered').checked = false;
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
                 
@@ -1215,7 +1253,7 @@
 
                     return {
                         id: Date.now() + Math.random().toString(16).slice(2),
-                        name, classLevel, count: '', stationery: '', isDone: false,
+                        name, classLevel, count: '', stationery: '', isDone: false, isDelivered: false,
                         dates: parsedDate ? [parsedDate] : [],
                         detailedDates: detailedDates
                     };
@@ -1270,6 +1308,8 @@
                     message += `📌 *Sınıf/Deneme:* ${exam.classLevel} - *${exam.name}*\n`;
                     message += `📅 *Uygulama Tarihi:* ${dateStr}\n`;
                     message += `🏢 *Kırtasiye:* *${stat}*\n`;
+                    const deliveryText = exam.isDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi';
+                    message += `🚚 *Teslim Durumu:* *${deliveryText}*\n`;
                     
                     const classes = classUtils.splitClasses(exam.classLevel);
                     const counts = (exam.count || '').toString().split('/').map(c => c.trim());
