@@ -378,9 +378,27 @@
                     <input type="checkbox" id="examIsDone" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                     <label for="examIsDone" class="ml-2 block text-sm text-gray-900">Bu deneme uygulandı (tamamlandı)</label>
                 </div>
-                <div class="flex items-center mt-2">
-                    <input type="checkbox" id="examIsDelivered" class="h-4 w-4 text-indigo-700 focus:ring-indigo-500 border-gray-300 rounded">
-                    <label for="examIsDelivered" class="ml-2 block text-sm text-gray-900">Kırtasiye denemeleri teslim etti</label>
+                
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Teslim Durumu</label>
+                    <input type="hidden" id="examDeliveryStatus" value="not_delivered">
+                    <div class="space-y-2">
+                        <button type="button" id="deliveryBtnNotDelivered"
+                                onclick="modalManager.setDeliveryStatus('not_delivered')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-hand mr-2"></i> Teslim Edilmedi
+                        </button>
+                        <button type="button" id="deliveryBtnOrdered"
+                                onclick="modalManager.setDeliveryStatus('ordered')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-cart-shopping mr-2"></i> Sipariş Edildi
+                        </button>
+                        <button type="button" id="deliveryBtnDelivered"
+                                onclick="modalManager.setDeliveryStatus('delivered')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-box mr-2"></i> Teslim Edildi
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
@@ -595,12 +613,34 @@
         const DATA_PATH = 'denemeTest';
         
         
+        window.DELIVERY_STATUS = Object.freeze({
+            NOT_DELIVERED: 'not_delivered',   // Teslim edilmedi
+            ORDERED: 'ordered',               // Sipariş edildi
+            DELIVERED: 'delivered'            // Teslim edildi
+        });
+        const DELIVERY_STATUS = window.DELIVERY_STATUS;
+
         // --- Exam Normalization (Backward compatible defaults) ---
         const normalizeExam = (exam) => {
             const e = JSON.parse(JSON.stringify(exam || {}));
+
             if (typeof e.isDone !== 'boolean') e.isDone = !!e.isDone;
-            if (typeof e.isDelivered !== 'boolean') e.isDelivered = false; // NEW: stationery delivery status
-            if (typeof e.parentMsgSent !== 'boolean') e.parentMsgSent = false; // NEW: parent WhatsApp message sent status
+
+            // Backward compatibility:
+            // - eski kayıtlarda sadece isDelivered (boolean) vardı
+            // - yeni yapıda deliveryStatus (3 durum) kullanıyoruz
+            if (typeof e.deliveryStatus !== 'string' || !e.deliveryStatus) {
+                if (typeof e.isDelivered === 'boolean') {
+                    e.deliveryStatus = e.isDelivered ? window.DELIVERY_STATUS.DELIVERED : window.DELIVERY_STATUS.NOT_DELIVERED;
+                } else {
+                    e.deliveryStatus = window.DELIVERY_STATUS.NOT_DELIVERED;
+                }
+            }
+
+            // isDelivered alanını (eski kayıt/uyumluluk) deliveryStatus'tan türet
+            e.isDelivered = (e.deliveryStatus === window.DELIVERY_STATUS.DELIVERED);
+
+            if (typeof e.parentMsgSent !== 'boolean') e.parentMsgSent = false;
             if (!Array.isArray(e.dates)) e.dates = e.dates ? [e.dates] : [];
             if (!Array.isArray(e.detailedDates)) e.detailedDates = [];
             if (typeof e.name !== 'string') e.name = (e.name ?? '').toString();
@@ -743,7 +783,8 @@ window.cloudManager = {
                 const count = document.getElementById('examCount').value;
                 const stationery = document.getElementById('examStationery').value;
                 const isDone = document.getElementById('examIsDone').checked;
-                const isDelivered = document.getElementById('examIsDelivered').checked;
+                const deliveryStatus = (document.getElementById('examDeliveryStatus')?.value || 'not_delivered');
+                const isDelivered = (deliveryStatus === window.DELIVERY_STATUS.DELIVERED);
                 
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
@@ -777,7 +818,9 @@ window.cloudManager = {
                 if (!classLevel) { alert('Lütfen sınıf seviyesini giriniz.'); return; }
 
                 const newExam = {
-                    id, name, classLevel, count, stationery, dates, isDone, isDelivered,
+                    id, name, classLevel, count, stationery, dates, isDone,
+                    deliveryStatus,
+                    isDelivered, // backward compatibility (eski kayıtlar)
                     detailedDates: detailedDates
                 };
 
@@ -820,7 +863,7 @@ window.cloudManager = {
                 document.getElementById('examCount').value = exam.count;
                 document.getElementById('examStationery').value = exam.stationery;
                 document.getElementById('examIsDone').checked = !!exam.isDone;
-                document.getElementById('examIsDelivered').checked = !!exam.isDelivered;
+                modalManager.setDeliveryStatus(exam.deliveryStatus || (exam.isDelivered ? 'delivered' : 'not_delivered'));
 
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
@@ -846,7 +889,15 @@ window.cloudManager = {
             toggleDelivery: (id) => {
                 const exam = window.appState.exams.find(e => e.id === id);
                 if (!exam) return;
-                exam.isDelivered = !exam.isDelivered;
+
+                const current = exam.deliveryStatus || (exam.isDelivered ? window.DELIVERY_STATUS.DELIVERED : window.DELIVERY_STATUS.NOT_DELIVERED);
+                let next = window.DELIVERY_STATUS.NOT_DELIVERED;
+                if (current === window.DELIVERY_STATUS.NOT_DELIVERED) next = window.DELIVERY_STATUS.ORDERED;
+                else if (current === window.DELIVERY_STATUS.ORDERED) next = window.DELIVERY_STATUS.DELIVERED;
+                else next = window.DELIVERY_STATUS.NOT_DELIVERED;
+
+                exam.deliveryStatus = next;
+                exam.isDelivered = (next === window.DELIVERY_STATUS.DELIVERED); // backward compatibility
                 uiManager.renderTable();
             },
             toggleParentMsg: (id) => {
@@ -1059,10 +1110,21 @@ window.cloudManager = {
                             <input type="text" value="${exam.stationery || ''}" class="table-input w-full sm:w-auto rounded-md px-2 py-1 text-sm" placeholder="Kırtasiye..." onchange="dataManager.updateField('${exam.id}', 'stationery', this.value)">
                         </td>
                         <td class="px-4 py-4 text-center" data-label="Teslim">
-                            <button type="button" tabindex="-1" onclick="dataManager.toggleDelivery('${exam.id}')" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.isDelivered ? 'bg-indigo-700 text-white border border-indigo-800' : 'bg-slate-100 text-slate-700 border border-slate-300'}">
-                                <i class="fa-solid ${exam.isDelivered ? 'fa-box' : 'fa-truck-ramp-box'} mr-1"></i>
-                                ${exam.isDelivered ? 'Teslim Edildi' : 'Teslim Edilmedi'}
-                            </button>
+                            ${(() => {
+                                const st = (exam.deliveryStatus || (exam.isDelivered ? window.DELIVERY_STATUS.DELIVERED : window.DELIVERY_STATUS.NOT_DELIVERED));
+                                const map = {
+                                    [window.DELIVERY_STATUS.NOT_DELIVERED]: { label: 'Teslim Edilmedi', icon: 'fa-hand', cls: 'bg-slate-100 text-slate-700 border border-slate-300' },
+                                    [window.DELIVERY_STATUS.ORDERED]: { label: 'Sipariş Edildi', icon: 'fa-cart-shopping', cls: 'bg-amber-100 text-amber-800 border border-amber-300' },
+                                    [window.DELIVERY_STATUS.DELIVERED]: { label: 'Teslim Edildi', icon: 'fa-box', cls: 'bg-indigo-700 text-white border border-indigo-800' }
+                                };
+                                const ui = map[st] || map[window.DELIVERY_STATUS.NOT_DELIVERED];
+                                return `
+                                    <button type="button" tabindex="-1" onclick="dataManager.toggleDelivery('${exam.id}')" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${ui.cls}">
+                                        <i class="fa-solid ${ui.icon} mr-1"></i>
+                                        ${ui.label}
+                                    </button>
+                                `;
+                            })()}
                         </td>
                         <td class="px-4 py-4 text-center text-gray-500" data-label="Adet">
                             <input type="text" value="${exam.count || ''}" class="table-input w-20 text-center rounded-md px-2 py-1 text-sm" placeholder="Adet" onchange="dataManager.updateField('${exam.id}', 'count', this.value)">
@@ -1103,7 +1165,7 @@ window.cloudManager = {
                 document.getElementById('examCount').value = '';
                 document.getElementById('examStationery').value = '';
                 document.getElementById('examIsDone').checked = false;
-                document.getElementById('examIsDelivered').checked = false;
+                modalManager.setDeliveryStatus('not_delivered');
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
                 
@@ -1134,6 +1196,33 @@ window.cloudManager = {
                         }
                     });
                 }
+            },
+            
+            setDeliveryStatus: (status) => {
+                const hidden = document.getElementById('examDeliveryStatus');
+                if (hidden) hidden.value = status || 'not_delivered';
+
+                const btnNot = document.getElementById('deliveryBtnNotDelivered');
+                const btnOrd = document.getElementById('deliveryBtnOrdered');
+                const btnDel = document.getElementById('deliveryBtnDelivered');
+
+                const resetBtn = (btn) => {
+                    if (!btn) return;
+                    btn.classList.remove('bg-slate-100','text-slate-700','border-slate-300','bg-amber-100','text-amber-800','border-amber-300','bg-indigo-700','text-white','border-indigo-800');
+                    btn.classList.add('bg-white','text-gray-700','border-gray-300');
+                };
+
+                [btnNot, btnOrd, btnDel].forEach(resetBtn);
+
+                const apply = (btn, clsArr) => {
+                    if (!btn) return;
+                    btn.classList.remove('bg-white','text-gray-700','border-gray-300');
+                    clsArr.forEach(c => btn.classList.add(c));
+                };
+
+                if (status === 'ordered') apply(btnOrd, ['bg-amber-100','text-amber-800','border-amber-300']);
+                else if (status === 'delivered') apply(btnDel, ['bg-indigo-700','text-white','border-indigo-800']);
+                else apply(btnNot, ['bg-slate-100','text-slate-700','border-slate-300']);
             },
             renderSessions: (container, subClasses, existingValues = {}) => {
                  let html = '';
@@ -1272,7 +1361,7 @@ window.cloudManager = {
 
                     return {
                         id: Date.now() + Math.random().toString(16).slice(2),
-                        name, classLevel, count: '', stationery: '', isDone: false, isDelivered: false,
+                        name, classLevel, count: '', stationery: '', isDone: false, deliveryStatus: 'not_delivered', isDelivered: false,
                         dates: parsedDate ? [parsedDate] : [],
                         detailedDates: detailedDates
                     };
