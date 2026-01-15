@@ -1410,7 +1410,7 @@ window.cloudManager = {
                 const nowFormatted = dateUtils.formatDate(nowLocal);
                 const supplierName = selectedExams[0].stationery || 'Tedarikçi Girilmedi';
 
-                let message = `📋 *Fenomen Çocuk Kulübü Deneme Sipariş Listesi*\n\nSayın *${supplierName}* çalışanı firmamız adına sipariş isteğimiz vardır gerekli bilgileri yolluyorum lütfen bize dönüş yapın.\n\n🕒 *Deneme sipariş tarihi:* ${nowFormatted}\n\n`;
+                let message = `📋 *Fenomen Eğitim Kurumları Deneme Sipariş Listesi*\n\nSayın *${supplierName}* çalışanı firmamız adına sipariş isteğimiz vardır gerekli bilgileri yolluyorum lütfen bize dönüş yapın.\n\n🕒 *Deneme sipariş tarihi:* ${nowFormatted}\n\n`;
 
                 selectedExams.forEach(exam => {
                     const dateStr = (exam.dates && exam.dates.length > 0) ? dateUtils.formatDate(exam.dates[0]) : 'Tarih Belirsiz';
@@ -1446,7 +1446,7 @@ window.cloudManager = {
                 if(selectedIds.length === 0) { alert('Lütfen listeden en az bir deneme seçin.'); return; }
                 const selectedExams = window.appState.exams.filter(e => selectedIds.includes(e.id));
                 
-                let message = `📢 *Fenomen Çocuk Kulübü Deneme Bilgilendirmesi*\n\nSayın Velilerimiz, Öğrencilerimizin katılacağı deneme sınav programı aşağıdadır:\n\n`;
+                let message = `📢 *Fenomen Eğitim Kurumları Deneme Bilgilendirmesi*\n\nSayın Velilerimiz, Öğrencilerimizin katılacağı deneme sınav programı aşağıdadır:\n\n`;
 
                 selectedExams.forEach(exam => {
                     message += `📘 *${exam.name}* (${exam.classLevel})\n`;
@@ -1489,7 +1489,7 @@ window.cloudManager = {
                     message += `-------------------------\n`;
                 });
 
-                message += `Öğrencilerimize başarılar dileriz.\n*Fenomen Çocuk Kulübü*`;
+                message += `Öğrencilerimize başarılar dileriz.\n*Fenomen Eğitim Kurumları*`;
 
                 document.getElementById('waModalTitle').innerText = 'Veli Bilgilendirme Mesajı';
                 document.getElementById('waMessageArea').value = message;
@@ -1593,7 +1593,7 @@ window.cloudManager = {
                 let html = `
                     <div style="font-family: 'Inter', sans-serif;">
                         <div style="text-align: center; margin-bottom: 20px;">
-                            <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 5px;">Fenomen Çocuk Kulübü Deneme Sınavları</h1>
+                            <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 5px;">Fenomen Eğitim Kurumları Deneme Sınavları</h1>
                             <p style="font-size: 14px; color: #555;">Deneme Sayısı: ${examsToPrint.length}</p>
                             ${showDate ? `<p style="font-size: 12px; color: #666;">Yazdırma Tarihi: ${headerDate}</p>` : ''}
                         </div>
