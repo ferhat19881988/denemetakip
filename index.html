@@ -393,6 +393,11 @@
                                 class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
                             <i class="fa-solid fa-cart-shopping mr-2"></i> Sipariş Edildi
                         </button>
+                        <button type="button" id="deliveryBtnPartialDelivered"
+                                onclick="modalManager.setDeliveryStatus('partial_delivered')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-box-open mr-2"></i> Eksik Teslim Edildi
+                        </button>
                         <button type="button" id="deliveryBtnDelivered"
                                 onclick="modalManager.setDeliveryStatus('delivered')"
                                 class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
@@ -614,9 +619,10 @@
         
         
         window.DELIVERY_STATUS = Object.freeze({
-            NOT_DELIVERED: 'not_delivered',   // Teslim edilmedi
-            ORDERED: 'ordered',               // Sipariş edildi
-            DELIVERED: 'delivered'            // Teslim edildi
+            NOT_DELIVERED: 'not_delivered',        // Teslim edilmedi
+            ORDERED: 'ordered',                    // Sipariş edildi
+            PARTIAL_DELIVERED: 'partial_delivered',// Eksik teslim edildi
+            DELIVERED: 'delivered'                 // Teslim edildi
         });
         const DELIVERY_STATUS = window.DELIVERY_STATUS;
 
@@ -891,9 +897,12 @@ window.cloudManager = {
                 if (!exam) return;
 
                 const current = exam.deliveryStatus || (exam.isDelivered ? window.DELIVERY_STATUS.DELIVERED : window.DELIVERY_STATUS.NOT_DELIVERED);
+
+                // Döngü: Teslim Edilmedi -> Sipariş Edildi -> Eksik Teslim Edildi -> Teslim Edildi -> Teslim Edilmedi
                 let next = window.DELIVERY_STATUS.NOT_DELIVERED;
                 if (current === window.DELIVERY_STATUS.NOT_DELIVERED) next = window.DELIVERY_STATUS.ORDERED;
-                else if (current === window.DELIVERY_STATUS.ORDERED) next = window.DELIVERY_STATUS.DELIVERED;
+                else if (current === window.DELIVERY_STATUS.ORDERED) next = window.DELIVERY_STATUS.PARTIAL_DELIVERED;
+                else if (current === window.DELIVERY_STATUS.PARTIAL_DELIVERED) next = window.DELIVERY_STATUS.DELIVERED;
                 else next = window.DELIVERY_STATUS.NOT_DELIVERED;
 
                 exam.deliveryStatus = next;
@@ -1115,6 +1124,7 @@ window.cloudManager = {
                                 const map = {
                                     [window.DELIVERY_STATUS.NOT_DELIVERED]: { label: 'Teslim Edilmedi', icon: 'fa-hand', cls: 'bg-slate-100 text-slate-700 border border-slate-300' },
                                     [window.DELIVERY_STATUS.ORDERED]: { label: 'Sipariş Edildi', icon: 'fa-cart-shopping', cls: 'bg-amber-100 text-amber-800 border border-amber-300' },
+                                    [window.DELIVERY_STATUS.PARTIAL_DELIVERED]: { label: 'Eksik Teslim Edildi', icon: 'fa-box-open', cls: 'bg-violet-100 text-violet-800 border border-violet-300' },
                                     [window.DELIVERY_STATUS.DELIVERED]: { label: 'Teslim Edildi', icon: 'fa-box', cls: 'bg-indigo-700 text-white border border-indigo-800' }
                                 };
                                 const ui = map[st] || map[window.DELIVERY_STATUS.NOT_DELIVERED];
@@ -1204,15 +1214,21 @@ window.cloudManager = {
 
                 const btnNot = document.getElementById('deliveryBtnNotDelivered');
                 const btnOrd = document.getElementById('deliveryBtnOrdered');
+                const btnPar = document.getElementById('deliveryBtnPartialDelivered');
                 const btnDel = document.getElementById('deliveryBtnDelivered');
 
                 const resetBtn = (btn) => {
                     if (!btn) return;
-                    btn.classList.remove('bg-slate-100','text-slate-700','border-slate-300','bg-amber-100','text-amber-800','border-amber-300','bg-indigo-700','text-white','border-indigo-800');
+                    btn.classList.remove(
+                        'bg-slate-100','text-slate-700','border-slate-300',
+                        'bg-amber-100','text-amber-800','border-amber-300',
+                        'bg-violet-100','text-violet-800','border-violet-300',
+                        'bg-indigo-700','text-white','border-indigo-800'
+                    );
                     btn.classList.add('bg-white','text-gray-700','border-gray-300');
                 };
 
-                [btnNot, btnOrd, btnDel].forEach(resetBtn);
+                [btnNot, btnOrd, btnPar, btnDel].forEach(resetBtn);
 
                 const apply = (btn, clsArr) => {
                     if (!btn) return;
@@ -1221,6 +1237,7 @@ window.cloudManager = {
                 };
 
                 if (status === 'ordered') apply(btnOrd, ['bg-amber-100','text-amber-800','border-amber-300']);
+                else if (status === 'partial_delivered') apply(btnPar, ['bg-violet-100','text-violet-800','border-violet-300']);
                 else if (status === 'delivered') apply(btnDel, ['bg-indigo-700','text-white','border-indigo-800']);
                 else apply(btnNot, ['bg-slate-100','text-slate-700','border-slate-300']);
             },
