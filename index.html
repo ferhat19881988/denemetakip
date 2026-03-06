@@ -172,16 +172,22 @@
                 <h1 class="text-xl font-bold text-gray-900 tracking-tight hidden sm:block">Fenomen Deneme Takip</h1>
                 <h1 class="text-lg font-bold text-gray-900 tracking-tight sm:hidden">Fenomen Takip</h1>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap justify-end">
                 <button onclick="cloudManager.save()" class="btn-hover bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
                     <i class="fa-solid fa-cloud-arrow-up"></i> <span class="hidden sm:inline">Kaydet</span>
                 </button>
                 <button onclick="cloudManager.load()" class="btn-hover bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
                     <i class="fa-solid fa-cloud-arrow-down"></i> <span class="hidden sm:inline">Yükle</span>
                 </button>
-                 <label for="excelInput" class="btn-hover bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm cursor-pointer flex items-center gap-2">
+                <button onclick="cloudManager.clearDatabase()" class="btn-hover bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-database"></i> <span class="hidden sm:inline">Veri Tabanı Sil</span>
+                </button>
+                <label for="excelInput" class="btn-hover bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm cursor-pointer flex items-center gap-2">
                     <i class="fa-solid fa-file-excel"></i> <span class="hidden sm:inline">Excel Yükle</span>
                 </label>
+                <button onclick="excelManager.downloadTemplate()" class="btn-hover bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-down"></i> <span class="hidden sm:inline">Excel İndir</span>
+                </button>
                 <input type="file" id="excelInput" accept=".xlsx, .csv" class="hidden" onchange="excelManager.handleFile(this)">
             </div>
         </div>
@@ -706,6 +712,38 @@ window.cloudManager = {
                 } catch (error) {
                     console.error(error);
                     alert('Veri çekme hatası: ' + (error.message || error));
+                }
+            },
+            clearDatabase: async () => {
+                const firstConfirm = confirm('Firebase üzerindeki tüm kayıtlar kalıcı olarak silinecek. Devam etmek istiyor musunuz?');
+                if (!firstConfirm) return;
+
+                const secondConfirm = prompt('Bu işlemi onaylamak için SİL yazın:');
+                const normalizedConfirm = (secondConfirm || '').trim().toUpperCase();
+                if (normalizedConfirm !== 'SİL' && normalizedConfirm !== 'SIL') {
+                    alert('Veri tabanı silme işlemi iptal edildi.');
+                    return;
+                }
+
+                try {
+                    await remove(ref(db, DATA_PATH));
+                    window.appState.exams = [];
+                    window.appState.selectedExamIds = new Set();
+
+                    if (window.filterManager && typeof window.filterManager.rebuildOptions === 'function') {
+                        window.filterManager.rebuildOptions();
+                    }
+
+                    if (window.uiManager && typeof window.uiManager.clearSelection === 'function') {
+                        window.uiManager.clearSelection();
+                    } else if (window.uiManager && typeof window.uiManager.renderTable === 'function') {
+                        window.uiManager.renderTable();
+                    }
+
+                    alert('Firebase veri tabanı ve yerel liste tamamen silindi.');
+                } catch (error) {
+                    console.error('Veri tabanı silme hatası:', error);
+                    alert('Veri tabanı silme hatası: ' + (error.message || error));
                 }
             }
         };
@@ -1329,6 +1367,31 @@ window.cloudManager = {
 
         // --- Excel Manager ---
         const excelManager = {
+            templateHeaders: ['Deneme Türü', 'Sınıf', 'Deneme Uygulama Tarihi'],
+            downloadTemplate: () => {
+                const templateRows = [
+                    {
+                        'Deneme Türü': 'LGS Genel Tekrar',
+                        'Sınıf': '8.Sınıf',
+                        'Deneme Uygulama Tarihi': '12 Mart 2026'
+                    },
+                    {
+                        'Deneme Türü': 'Fenomen Seri Deneme',
+                        'Sınıf': '7.Sınıf',
+                        'Deneme Uygulama Tarihi': '18 Mart 2026'
+                    },
+                    {
+                        'Deneme Türü': 'Karma Kamp Denemesi',
+                        'Sınıf': '5-6-7.Sınıf',
+                        'Deneme Uygulama Tarihi': '22 Mart 2026'
+                    }
+                ];
+
+                const worksheet = XLSX.utils.json_to_sheet(templateRows, { header: excelManager.templateHeaders });
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'LGS Deneme Şablonu');
+                XLSX.writeFile(workbook, 'fenomen-deneme-excel-sablonu.xlsx');
+            },
             handleFile: (input) => {
                 const file = input.files[0];
                 if (!file) return;
