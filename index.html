@@ -217,15 +217,21 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
                 <select id="nameFilter" onchange="uiManager.renderTable()" class="col-span-2 sm:col-span-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                     <option value="all">Tüm Kategoriler</option>
                 </select>
                 <select id="classFilter" onchange="uiManager.renderTable()" class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                     <option value="all">Tüm Sınıflar</option>
                 </select>
-                 <select id="stationeryFilter" onchange="uiManager.renderTable()" class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <select id="stationeryFilter" onchange="uiManager.renderTable()" class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                     <option value="all">Tüm Kırtasiyeler</option>
+                </select>
+                <select id="paymentFilter" onchange="uiManager.renderTable()" class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="all">Tüm Ödemeler</option>
+                    <option value="unpaid">Ödenmedi</option>
+                    <option value="paid">Ödendi</option>
+                    <option value="partial_paid">Kısmi Ödendi</option>
                 </select>
                 <input type="date" id="dateFromFilter" onchange="uiManager.renderTable()" class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                 <input type="date" id="dateToFilter" onchange="uiManager.renderTable()" class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -1124,6 +1130,7 @@ window.cloudManager = {
                 document.getElementById('nameFilter').value = 'all';
                 document.getElementById('classFilter').value = 'all';
                 document.getElementById('stationeryFilter').value = 'all';
+                document.getElementById('paymentFilter').value = 'all';
                 document.getElementById('dateFromFilter').value = '';
                 document.getElementById('dateToFilter').value = '';
                 uiManager.renderTable();
@@ -1136,6 +1143,7 @@ window.cloudManager = {
                 const nameFilter = (document.getElementById('nameFilter').value || 'all').toLowerCase();
                 const classFilter = (document.getElementById('classFilter').value || 'all').toLowerCase();
                 const stationeryFilter = (document.getElementById('stationeryFilter').value || 'all').toLowerCase();
+                const paymentFilter = (document.getElementById('paymentFilter').value || 'all').toLowerCase();
                 const dateFrom = document.getElementById('dateFromFilter').value;
                 const dateTo = document.getElementById('dateToFilter').value;
 
@@ -1150,6 +1158,8 @@ window.cloudManager = {
                     const matchesName = nameFilter === 'all' || name === nameFilter;
                     const matchesClass = classFilter === 'all' || cls === classFilter;
                     const matchesStationery = stationeryFilter === 'all' || stat === stationeryFilter;
+                    const paymentStatus = (exam.paymentStatus || (exam.isPaid ? window.PAYMENT_STATUS.PAID : window.PAYMENT_STATUS.UNPAID)).toLowerCase();
+                    const matchesPayment = paymentFilter === 'all' || paymentStatus === paymentFilter;
                     
                     let matchesStatus = true;
                     if(statusFilter === 'pending') matchesStatus = !exam.isDone;
@@ -1165,7 +1175,7 @@ window.cloudManager = {
                             if (dateTo && t > new Date(dateTo).getTime()) matchesDate = false;
                         }
                     }
-                    return matchesSearch && matchesStatus && matchesName && matchesClass && matchesStationery && matchesDate;
+                    return matchesSearch && matchesStatus && matchesName && matchesClass && matchesStationery && matchesPayment && matchesDate;
                 });
 
                 // Sıralama
