@@ -286,6 +286,9 @@
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 group" onclick="uiManager.sortBy('isDone')">
                                     Durum <i class="fa-solid fa-sort ml-1 opacity-0 group-hover:opacity-100 transition"></i>
                                 </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Ödeme Bilgisi
+                                </th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600 group" onclick="uiManager.sortBy('name')">
                                     Deneme Kategorisi <i class="fa-solid fa-sort ml-1 opacity-0 group-hover:opacity-100 transition"></i>
                                 </th>
@@ -411,6 +414,28 @@
                         </button>
                     </div>
                 </div>
+
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ödeme Bilgisi</label>
+                    <input type="hidden" id="examPaymentStatus" value="unpaid">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button type="button" id="paymentBtnUnpaid"
+                                onclick="modalManager.setPaymentStatus('unpaid')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-money-bill-wave mr-2"></i> Ödenmedi
+                        </button>
+                        <button type="button" id="paymentBtnPaid"
+                                onclick="modalManager.setPaymentStatus('paid')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-circle-check mr-2"></i> Ödendi
+                        </button>
+                        <button type="button" id="paymentBtnPartial"
+                                onclick="modalManager.setPaymentStatus('partial_paid')"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold btn-hover border">
+                            <i class="fa-solid fa-coins mr-2"></i> Kısmi Ödendi
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-2">
                 <button onclick="modalManager.close('examModal')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium btn-hover">İptal</button>
@@ -457,28 +482,32 @@
             <div class="p-5 space-y-3">
                 <p class="text-sm text-gray-600 mb-2">Çıktıda görünmesini istediğiniz sütunları seçin:</p>
                 <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked onchange="printManager.toggleColumn(1, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(1, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <span class="text-sm">Durum</span>
                 </label>
                 <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked onchange="printManager.toggleColumn(2, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(2, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <span class="text-sm">Deneme Kategorisi</span>
                 </label>
                  <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked onchange="printManager.toggleColumn(3, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(3, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <span class="text-sm">Sınıf</span>
                 </label>
                 <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked onchange="printManager.toggleColumn(4, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(4, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <span class="text-sm">Uygulama Tarihleri</span>
                 </label>
                  <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked onchange="printManager.toggleColumn(5, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(5, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <span class="text-sm">Kırtasiye</span>
                 </label>
                 <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked onchange="printManager.toggleColumn(6, this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(6, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <span class="text-sm">Adet</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked onchange="printManager.toggleColumn(7, this.checked)" class="print-column-toggle rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="text-sm">Ödeme Bilgisi</span>
                 </label>
                  <div class="pt-2 border-t mt-2">
                     <label class="flex items-center space-x-2 cursor-pointer">
@@ -632,6 +661,13 @@
         });
         const DELIVERY_STATUS = window.DELIVERY_STATUS;
 
+        window.PAYMENT_STATUS = Object.freeze({
+            UNPAID: 'unpaid',
+            PAID: 'paid',
+            PARTIAL_PAID: 'partial_paid'
+        });
+        const PAYMENT_STATUS = window.PAYMENT_STATUS;
+
         // --- Exam Normalization (Backward compatible defaults) ---
         const normalizeExam = (exam) => {
             const e = JSON.parse(JSON.stringify(exam || {}));
@@ -651,6 +687,16 @@
 
             // isDelivered alanını (eski kayıt/uyumluluk) deliveryStatus'tan türet
             e.isDelivered = (e.deliveryStatus === window.DELIVERY_STATUS.DELIVERED);
+
+            if (typeof e.paymentStatus !== 'string' || !e.paymentStatus) {
+                if (typeof e.isPaid === 'boolean') {
+                    e.paymentStatus = e.isPaid ? window.PAYMENT_STATUS.PAID : window.PAYMENT_STATUS.UNPAID;
+                } else {
+                    e.paymentStatus = window.PAYMENT_STATUS.UNPAID;
+                }
+            }
+
+            e.isPaid = (e.paymentStatus === window.PAYMENT_STATUS.PAID);
 
             if (typeof e.parentMsgSent !== 'boolean') e.parentMsgSent = false;
             if (!Array.isArray(e.dates)) e.dates = e.dates ? [e.dates] : [];
@@ -828,7 +874,9 @@ window.cloudManager = {
                 const stationery = document.getElementById('examStationery').value;
                 const isDone = document.getElementById('examIsDone').checked;
                 const deliveryStatus = (document.getElementById('examDeliveryStatus')?.value || 'not_delivered');
+                const paymentStatus = (document.getElementById('examPaymentStatus')?.value || 'unpaid');
                 const isDelivered = (deliveryStatus === window.DELIVERY_STATUS.DELIVERED);
+                const isPaid = (paymentStatus === window.PAYMENT_STATUS.PAID);
                 
                 const detailedDates = [];
                 const dateBlocks = document.querySelectorAll('.date-block');
@@ -864,7 +912,9 @@ window.cloudManager = {
                 const newExam = {
                     id, name, classLevel, count, stationery, dates, isDone,
                     deliveryStatus,
+                    paymentStatus,
                     isDelivered, // backward compatibility (eski kayıtlar)
+                    isPaid,
                     detailedDates: detailedDates
                 };
 
@@ -908,6 +958,7 @@ window.cloudManager = {
                 document.getElementById('examStationery').value = exam.stationery;
                 document.getElementById('examIsDone').checked = !!exam.isDone;
                 modalManager.setDeliveryStatus(exam.deliveryStatus || (exam.isDelivered ? 'delivered' : 'not_delivered'));
+                modalManager.setPaymentStatus(exam.paymentStatus || (exam.isPaid ? 'paid' : 'unpaid'));
 
                 const container = document.getElementById('detailedDatesContainer');
                 container.innerHTML = '';
@@ -945,6 +996,21 @@ window.cloudManager = {
 
                 exam.deliveryStatus = next;
                 exam.isDelivered = (next === window.DELIVERY_STATUS.DELIVERED); // backward compatibility
+                uiManager.renderTable();
+            },
+            togglePayment: (id) => {
+                const exam = window.appState.exams.find(e => e.id === id);
+                if (!exam) return;
+
+                const current = exam.paymentStatus || (exam.isPaid ? window.PAYMENT_STATUS.PAID : window.PAYMENT_STATUS.UNPAID);
+                let next = window.PAYMENT_STATUS.UNPAID;
+
+                if (current === window.PAYMENT_STATUS.UNPAID) next = window.PAYMENT_STATUS.PAID;
+                else if (current === window.PAYMENT_STATUS.PAID) next = window.PAYMENT_STATUS.PARTIAL_PAID;
+                else next = window.PAYMENT_STATUS.UNPAID;
+
+                exam.paymentStatus = next;
+                exam.isPaid = (next === window.PAYMENT_STATUS.PAID);
                 uiManager.renderTable();
             },
             toggleParentMsg: (id) => {
@@ -1145,10 +1211,27 @@ window.cloudManager = {
                             </div>
                         </td>
                         <td class="px-4 py-4 whitespace-nowrap" data-label="Durum">
-                            <button type="button" tabindex="-1" onclick="dataManager.toggleStatus('${exam.id}')" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.isDone ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}">
+                            <button type="button" tabindex="-1" onclick="dataManager.toggleStatus('${exam.id}')" class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.isDone ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}">
                                 <i class="fa-solid ${exam.isDone ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
                                 ${exam.isDone ? 'Uygulandı' : 'Bekliyor'}
                             </button>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap" data-label="Ödeme">
+                            ${(() => {
+                                const paymentStatus = exam.paymentStatus || (exam.isPaid ? window.PAYMENT_STATUS.PAID : window.PAYMENT_STATUS.UNPAID);
+                                const paymentMap = {
+                                    [window.PAYMENT_STATUS.UNPAID]: { label: 'Ödenmedi', icon: 'fa-money-bill-wave', cls: 'bg-rose-100 text-rose-800 border border-rose-300' },
+                                    [window.PAYMENT_STATUS.PAID]: { label: 'Ödendi', icon: 'fa-circle-check', cls: 'bg-emerald-100 text-emerald-800 border border-emerald-300' },
+                                    [window.PAYMENT_STATUS.PARTIAL_PAID]: { label: 'Kısmi Ödendi', icon: 'fa-coins', cls: 'bg-amber-100 text-amber-800 border border-amber-300' }
+                                };
+                                const ui = paymentMap[paymentStatus] || paymentMap[window.PAYMENT_STATUS.UNPAID];
+                                return `
+                                    <button type="button" tabindex="-1" onclick="dataManager.togglePayment('${exam.id}')" class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1 rounded-full text-xs font-semibold btn-hover ${ui.cls}">
+                                        <i class="fa-solid ${ui.icon} mr-1"></i>
+                                        ${ui.label}
+                                    </button>
+                                `;
+                            })()}
                         </td>
                         <td class="px-4 py-4 font-medium text-gray-900" data-copyable="true" data-label="Deneme">${exam.name}</td>
                         <td class="px-4 py-4 text-gray-500" data-copyable="true" data-label="Sınıf">${exam.classLevel}</td>
@@ -1167,7 +1250,7 @@ window.cloudManager = {
                                 };
                                 const ui = map[st] || map[window.DELIVERY_STATUS.NOT_DELIVERED];
                                 return `
-                                    <button type="button" tabindex="-1" onclick="dataManager.toggleDelivery('${exam.id}')" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${ui.cls}">
+                                    <button type="button" tabindex="-1" onclick="dataManager.toggleDelivery('${exam.id}')" class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1 rounded-full text-xs font-semibold btn-hover ${ui.cls}">
                                         <i class="fa-solid ${ui.icon} mr-1"></i>
                                         ${ui.label}
                                     </button>
@@ -1180,7 +1263,7 @@ window.cloudManager = {
                         <td class="px-4 py-4 text-center" data-label="Veliye Mesaj">
                             <button type="button" tabindex="-1"
                                 onclick="dataManager.toggleParentMsg('${exam.id}')"
-                                class="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.parentMsgSent ? 'bg-orange-500 text-white border border-orange-600' : 'bg-slate-100 text-slate-700 border border-slate-300'}">
+                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1 rounded-full text-xs font-semibold btn-hover ${exam.parentMsgSent ? 'bg-orange-500 text-white border border-orange-600' : 'bg-slate-100 text-slate-700 border border-slate-300'}">
                                 <i class="fa-solid ${exam.parentMsgSent ? 'fa-comment-dots' : 'fa-comment-slash'} mr-1"></i>
                                 ${exam.parentMsgSent ? 'Atıldı' : 'Atılmadı'}
                             </button>
@@ -1214,6 +1297,7 @@ window.cloudManager = {
                 document.getElementById('examStationery').value = '';
                 document.getElementById('examIsDone').checked = false;
                 modalManager.setDeliveryStatus('not_delivered');
+                modalManager.setPaymentStatus('unpaid');
                 
                 document.getElementById('detailedDatesContainer').innerHTML = '';
                 
@@ -1278,6 +1362,36 @@ window.cloudManager = {
                 else if (status === 'partial_delivered') apply(btnPar, ['bg-violet-100','text-violet-800','border-violet-300']);
                 else if (status === 'delivered') apply(btnDel, ['bg-indigo-700','text-white','border-indigo-800']);
                 else apply(btnNot, ['bg-slate-100','text-slate-700','border-slate-300']);
+            },
+            setPaymentStatus: (status) => {
+                const hidden = document.getElementById('examPaymentStatus');
+                if (hidden) hidden.value = status || 'unpaid';
+
+                const btnUnpaid = document.getElementById('paymentBtnUnpaid');
+                const btnPaid = document.getElementById('paymentBtnPaid');
+                const btnPartial = document.getElementById('paymentBtnPartial');
+
+                const resetBtn = (btn) => {
+                    if (!btn) return;
+                    btn.classList.remove(
+                        'bg-rose-100','text-rose-800','border-rose-300',
+                        'bg-emerald-100','text-emerald-800','border-emerald-300',
+                        'bg-amber-100','text-amber-800','border-amber-300'
+                    );
+                    btn.classList.add('bg-white','text-gray-700','border-gray-300');
+                };
+
+                [btnUnpaid, btnPaid, btnPartial].forEach(resetBtn);
+
+                const apply = (btn, clsArr) => {
+                    if (!btn) return;
+                    btn.classList.remove('bg-white','text-gray-700','border-gray-300');
+                    clsArr.forEach(c => btn.classList.add(c));
+                };
+
+                if (status === 'paid') apply(btnPaid, ['bg-emerald-100','text-emerald-800','border-emerald-300']);
+                else if (status === 'partial_paid') apply(btnPartial, ['bg-amber-100','text-amber-800','border-amber-300']);
+                else apply(btnUnpaid, ['bg-rose-100','text-rose-800','border-rose-300']);
             },
             renderSessions: (container, subClasses, existingValues = {}) => {
                  let html = '';
@@ -1367,23 +1481,26 @@ window.cloudManager = {
 
         // --- Excel Manager ---
         const excelManager = {
-            templateHeaders: ['Deneme Türü', 'Sınıf', 'Deneme Uygulama Tarihi'],
+            templateHeaders: ['Deneme Türü', 'Sınıf', 'Deneme Uygulama Tarihi', 'Ödeme Bilgisi'],
             downloadTemplate: () => {
                 const templateRows = [
                     {
                         'Deneme Türü': 'LGS Genel Tekrar',
                         'Sınıf': '8.Sınıf',
-                        'Deneme Uygulama Tarihi': '12 Mart 2026'
+                        'Deneme Uygulama Tarihi': '12 Mart 2026',
+                        'Ödeme Bilgisi': 'Ödenmedi'
                     },
                     {
                         'Deneme Türü': 'Fenomen Seri Deneme',
                         'Sınıf': '7.Sınıf',
-                        'Deneme Uygulama Tarihi': '18 Mart 2026'
+                        'Deneme Uygulama Tarihi': '18 Mart 2026',
+                        'Ödeme Bilgisi': 'Ödendi'
                     },
                     {
                         'Deneme Türü': 'Karma Kamp Denemesi',
                         'Sınıf': '5-6-7.Sınıf',
-                        'Deneme Uygulama Tarihi': '22 Mart 2026'
+                        'Deneme Uygulama Tarihi': '22 Mart 2026',
+                        'Ödeme Bilgisi': 'Kısmi Ödendi'
                     }
                 ];
 
@@ -1423,6 +1540,11 @@ window.cloudManager = {
                         }
                     }
 
+                    const paymentRaw = (row['Ödeme Bilgisi'] || row['Odeme Bilgisi'] || '').toString().trim().toLocaleLowerCase('tr-TR');
+                    let paymentStatus = 'unpaid';
+                    if (paymentRaw === 'ödendi' || paymentRaw === 'odendi' || paymentRaw === 'paid') paymentStatus = 'paid';
+                    else if (paymentRaw === 'kısmi ödendi' || paymentRaw === 'kismi ödendi' || paymentRaw === 'kısmi odendi' || paymentRaw === 'kismi odendi' || paymentRaw === 'partial_paid' || paymentRaw === 'partial paid') paymentStatus = 'partial_paid';
+
                     const detailedDates = [];
                     if (parsedDate) {
                         const defaultTimes = dateUtils.getDefaultTimes(parsedDate);
@@ -1441,7 +1563,7 @@ window.cloudManager = {
 
                     return {
                         id: Date.now() + Math.random().toString(16).slice(2),
-                        name, classLevel, count: '', stationery: '', isDone: false, deliveryStatus: 'not_delivered', isDelivered: false,
+                        name, classLevel, count: '', stationery: '', isDone: false, deliveryStatus: 'not_delivered', paymentStatus, isDelivered: false, isPaid: paymentStatus === 'paid',
                         dates: parsedDate ? [parsedDate] : [],
                         detailedDates: detailedDates
                     };
@@ -1610,7 +1732,8 @@ window.cloudManager = {
             columnDefs: [
                 { id: 'status', label: 'Durum' }, { id: 'name', label: 'Deneme Kategorisi' },
                 { id: 'class', label: 'Sınıf' }, { id: 'dates', label: 'Uygulama Tarihleri' },
-                { id: 'stationery', label: 'Kırtasiye' }, { id: 'count', label: 'Adet' }
+                { id: 'stationery', label: 'Kırtasiye' }, { id: 'count', label: 'Adet' },
+                { id: 'payment', label: 'Ödeme Bilgisi' }
             ],
             openSettings: () => modalManager.open('printSettingsModal'),
             toggleColumn: (colIndex, isVisible) => {},
@@ -1624,7 +1747,7 @@ window.cloudManager = {
             // Yazdırma işlemi yeniden yazıldı - Tam HTML Tablo yapısı
             executePrint: function () {
                 const printOnlySelected = document.getElementById('printOnlySelected').checked;
-                const checkboxes = document.querySelectorAll('#printSettingsModal input[type="checkbox"]:not(#printOnlySelected)');
+                const checkboxes = document.querySelectorAll('#printSettingsModal .print-column-toggle');
                 const activeColumns = this.columnDefs.filter((col, index) => checkboxes[index].checked);
                 const visibleRowCheckboxes = document.querySelectorAll('.row-checkbox');
                 
@@ -1722,6 +1845,15 @@ window.cloudManager = {
                             } else {
                                 text = exam.count;
                             }
+                        }
+                        else if(col.id === 'payment') {
+                            const paymentStatus = exam.paymentStatus || (exam.isPaid ? window.PAYMENT_STATUS.PAID : window.PAYMENT_STATUS.UNPAID);
+                            const paymentMap = {
+                                [window.PAYMENT_STATUS.UNPAID]: 'Ödenmedi',
+                                [window.PAYMENT_STATUS.PAID]: 'Ödendi',
+                                [window.PAYMENT_STATUS.PARTIAL_PAID]: 'Kısmi Ödendi'
+                            };
+                            text = paymentMap[paymentStatus] || 'Ödenmedi';
                         }
                         html += `<td style="border: 1px solid #ccc; padding: ${compact ? '4px' : '8px'}; vertical-align: top;">${text || ''}</td>`;
                     });
