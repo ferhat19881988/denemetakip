@@ -575,8 +575,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, remove, get, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
+        
         // Firebase Yapılandırması
         const firebaseConfig = {
             apiKey: "AIzaSyAIzu6aNQstwQCdMWODyIwiaVVBm63OeGw",
@@ -591,16 +590,8 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app, firebaseConfig.databaseURL);
-        const auth = getAuth(app);
-        
-        signInAnonymously(auth).catch((error) => {
-            console.error('Anonymous auth failed:', error);
-        });
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.debug('Signed in anonymously with uid:', user.uid);
-            }
-        });
+        // Bu projede Auth kullanılmıyor. Anonim giriş çağrısı kaldırıldı;
+        // böylece auth/configuration-not-found konsol hatası oluşmaz.
 
         // --- GÜNCELLENMİŞ FIREBASE KEY UTILS ---
         const firebaseKeyUtils = {
